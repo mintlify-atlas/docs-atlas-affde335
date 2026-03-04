@@ -1,0 +1,186 @@
+---
+title: Codebase Map
+description: Reverse-engineer business and technical specs from existing codebase using parallel analyzer sub-agents
+---
+
+Analyze an existing codebase to reverse-engineer comprehensive project documentation across business and technical dimensions. Purely read-only until final write step.
+
+## Purpose
+
+Discover and document what exists in a brownfield codebase:
+- Business domain analysis (entities, rules, revenue flows, user journeys)
+- Technical architecture analysis (modules, dependencies, conventions, stack)
+- Production readiness assessment (deployment, observability, scaling)
+- Technical debt catalog (prioritized by business impact)
+- Inferred ADRs from architectural decisions found in code
+
+## When to Use
+
+- Onboarding to an existing project
+- Documenting an undocumented codebase
+- Understanding inherited or acquired code
+- Planning refactoring or migration efforts
+- Creating AI-friendly project documentation
+- Preparing for team scaling or knowledge transfer
+
+## What It Generates
+
+### Business Specs (`docs/specs/business/`)
+- **Business Glossary** - Reverse-engineered business entities, domain terms, events
+- **Business Overview** - Inferred business model, market context, personas from code
+- **Domain Specs** - Business rules found in code, user journey traces, revenue paths
+- **Production Readiness** - Stage-calibrated scorecard (deployment, observability, scaling)
+
+### Technical Specs (`docs/specs/technical/`)
+- **Technical Glossary** - Discovered entities, events, modules with stable IDs
+- **Technical Overview** - Architecture style, stack, module map, conventions
+- **Module Specs** - Per-module structure, components, integration points, debt
+
+### Other Artifacts
+- **ADRs** (`docs/adr/`) - Inferred decisions from framework/library choices, patterns
+- **Codebase Health Report** (`docs/codebase-health.md`) - Technical + business health summary
+- **todo.md** - Prioritized improvement items (optional)
+- **AGENTS.md** - Project README for AI tools (optional)
+- **.hatch3r-session.json** - Session context for downstream commands
+
+## Sub-Agent Architecture
+
+Spawns 6 parallel analyzer sub-agents using the Task tool:
+
+<Steps>
+  <Step title="Module & Dependency Analyzer">
+    Maps all modules/packages/components, builds internal dependency graph, identifies entry points, shared utilities, orphaned code, and circular dependencies.
+  </Step>
+  
+  <Step title="Conventions & Patterns Analyzer">
+    Discovers coding conventions (naming, file structure, exports), architectural patterns (error handling, state management, API design), and code style.
+  </Step>
+  
+  <Step title="Tech Stack & Config Analyzer">
+    Deep dependency analysis, build pipeline, CI/CD configuration, environment setup, infrastructure, and dependency health assessment.
+  </Step>
+  
+  <Step title="Concerns & Debt Analyzer">
+    Scans for TODO/FIXME markers, dead code, complexity hotspots, missing test coverage, security concerns, and performance anti-patterns.
+  </Step>
+  
+  <Step title="Business Domain Analyzer">
+    Reverse-engineers domain entities, business rules, revenue-relevant code paths, user journey touchpoints, analytics collection, and business invariants.
+  </Step>
+  
+  <Step title="Production Readiness Analyzer">
+    Evaluates deployment maturity, observability, scaling patterns, reliability, incident readiness, cost efficiency, and data management relative to company stage.
+  </Step>
+</Steps>
+
+## Workflow
+
+<Steps>
+  <Step title="Initial Scan & Discovery">
+    Detects package managers, tech stack, project size, existing documentation. Gathers company stage and business context (infers from codebase where possible).
+  </Step>
+  
+  <Step title="Spawn Parallel Analyzers">
+    Launches all 6 analyzers concurrently with project fingerprint, scope, stage, and business context. Each produces structured markdown output.
+  </Step>
+  
+  <Step title="Review Analyzer Outputs">
+    Presents merged codebase map with business and technical dimensions. Cross-references findings (e.g., revenue-critical paths with technical debt).
+  </Step>
+  
+  <Step title="Generate Dual-Lens Specs">
+    Creates business and technical specs documenting **what exists** (marked as "Inferred" where uncertain).
+  </Step>
+  
+  <Step title="Generate Inferred ADRs">
+    Reverse-engineers architectural decisions from code patterns (framework choice, architecture style, auth approach, payment architecture).
+  </Step>
+  
+  <Step title="Generate Health Report">
+    Compiles technical health, business health, and production readiness into a comprehensive report with prioritized concerns.
+  </Step>
+  
+  <Step title="Write Files">
+    After user confirmation, writes specs, ADRs, health report, optional todo.md, and session context. Optionally generates AGENTS.md.
+  </Step>
+</Steps>
+
+## Project Fingerprint
+
+Initial scan produces:
+
+```
+Root:          /path/to/project
+Languages:     TypeScript (450 files), Python (120 files)
+Frameworks:    Next.js, FastAPI
+Databases:     PostgreSQL, Redis
+Package Mgr:   pnpm
+Build Tools:   turbo, vite
+CI/CD:         GitHub Actions
+Infra:         Docker, Vercel
+Project Size:  570 files, ~85K LOC
+Monorepo:      yes — 3 workspaces (web, api, shared)
+Existing Docs: docs/specs/ (0 files), README.md (found)
+```
+
+## Stage-Adaptive Analysis
+
+Analysis depth calibrated to company stage:
+
+- **Pre-revenue / Early-revenue**: Lean analysis. Focuses on core flows, MVP infrastructure gaps.
+- **Growth**: Scaling focus. Emphasizes performance bottlenecks, horizontal scaling readiness, monitoring gaps.
+- **Scale / Enterprise**: Production hardening. Emphasizes SLA readiness, disaster recovery, governance, compliance.
+
+## Production Readiness Scorecard
+
+Grades each dimension (A/B/C/D/F) relative to company stage:
+
+- **Deployment Maturity**: CI/CD completeness, deployment strategies, rollback capability
+- **Observability**: Logging, metrics, tracing, alerting, dashboards
+- **Scaling Readiness**: Horizontal scaling, caching, database scaling, queue-based processing
+- **Reliability**: Error budgets, circuit breakers, health checks, timeout configuration
+- **Incident Readiness**: Runbooks, on-call setup, post-mortem templates
+- **Cost Efficiency**: Resource utilization, autoscaling, cost monitoring
+- **Data Management**: Backup strategy, disaster recovery, data retention, migrations
+
+## Examples
+
+### Analyzing a SaaS Application
+```markdown
+Detected stack: React + Node.js + PostgreSQL
+Business model inferred: Subscription (Stripe integration found)
+Domain entities: User, Organization, Subscription, Invoice (12 total)
+Business rules: 23 rules mapped (tier-based access, usage quotas)
+Revenue paths: Stripe checkout, webhook handlers, subscription lifecycle
+Production readiness: B (for growth stage) — needs scaling improvements
+Top debt: Missing error handling in payment webhooks (Critical)
+```
+
+### Analyzing a Marketplace Platform
+```markdown
+Detected stack: Next.js + Python microservices + MongoDB
+Business model inferred: Transactional (commission logic in code)
+Domain entities: Buyer, Seller, Listing, Transaction, Review (18 total)
+User journeys: 5 traced (search → purchase → review)
+Revenue paths: Commission calculation, payout scheduling, refunds
+Production readiness: C (for scale stage) — needs observability, multi-region
+Top concern: No distributed tracing, hard to debug cross-service flows
+```
+
+## Cross-Command Integration
+
+After completion, recommended next steps:
+- **`project-spec`** - Create forward-looking specs and fill gaps
+- **`roadmap`** - Generate phased roadmap from specs
+- **`board-fill`** - Create GitHub issues from todo.md (if generated)
+- **`healthcheck`** - Deep QA audit of each module
+- **`security-audit`** - Full security audit
+
+## Key Features
+
+- **Dual-lens analysis**: Separate business and technical specs with cross-references
+- **Read-only until final write**: Safe exploration of existing code
+- **Cross-referencing**: Maps business rules to technical modules, debt to revenue paths
+- **Inferred ADRs**: Reverse-engineers architectural decisions from code
+- **Health scoring**: Stage-calibrated production readiness assessment
+- **Uncertainty tracking**: Clearly marks inferred information for human review

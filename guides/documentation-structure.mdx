@@ -1,0 +1,398 @@
+---
+title: Documentation Structure
+description: Understanding hatch3r's documentation organization with docs/specs/ and docs/adr/
+---
+
+hatch3r projects use a `docs/` folder with structured subdirectories for specifications and architectural decisions. The docs-writer agent maintains these docs automatically.
+
+## Overview
+
+hatch3r documentation follows a three-pillar structure:
+
+```
+docs/
+  specs/        Modular specifications with stable IDs
+  adr/          Architecture Decision Records
+  process/      Process documentation (optional)
+```
+
+## docs/specs/ — Specifications
+
+Modular spec files define what the system does. Each spec covers one logical domain and uses stable IDs for cross-referencing.
+
+### Dual-Lens Organization
+
+hatch3r separates specifications into **business** and **technical** dimensions:
+
+```
+docs/specs/
+  business/     Business domain, market context, GTM, production readiness
+  technical/    Technical modules, stack, architecture, conventions
+```
+
+This separation allows:
+- **Business stakeholders** to understand product strategy without technical implementation details
+- **Engineers** to focus on technical architecture without business context noise
+- **Cross-referencing** between business entities and technical modules via stable IDs
+
+### Technical Specs
+
+| File | Purpose |
+|------|---------||
+| `00_glossary.md` | Stable IDs for entities, events, modules. TOC for all specs. |
+| `01_overview.md` | Technical overview: architecture, stack, build/deploy pipeline. |
+| `02_{module}.md` | Per-module specs: requirements, features, dependencies, invariants. |
+
+**Example technical glossary:**
+
+```markdown
+# Technical Glossary
+
+> Stable IDs for all entities, events, and modules in MyProject.
+> All specs reference items by their stable ID.
+
+## Entities
+
+| Stable ID | Name | Description |
+|-----------|------|-------------|
+| USR | User | Authenticated user account |
+| ORD | Order | Purchase order with line items |
+| PRD | Product | Sellable product with inventory |
+
+## Events
+
+| Stable ID | Name | Trigger | Description |
+|-----------|------|---------|-------------|
+| EVT_USER_CREATED | User Created | User signs up | Emitted after user record persists |
+| EVT_ORDER_PLACED | Order Placed | Checkout completes | Emitted after payment succeeds |
+
+## Modules
+
+| Stable ID | Name | Description | Primary Spec |
+|-----------|------|-------------|-------------|
+| MOD_AUTH | Authentication | User auth and session management | `02_auth.md` |
+| MOD_API | API Layer | REST API and GraphQL endpoints | `03_api.md` |
+```
+
+### Business Specs
+
+| File | Purpose |
+|------|---------||
+| `00_business_glossary.md` | Stable IDs for business entities, domain terms, metrics. Cross-references technical IDs. |
+| `01_business_overview.md` | Business model, market context, personas, key metrics, company stage. |
+| `02_{domain}.md` | Per-domain business rules, user journeys, revenue relevance. |
+| `03_competitive_analysis.md` | Competitor research, feature comparison, differentiation strategy. |
+| `04_gtm_strategy.md` | Go-to-market plan, acquisition channels, launch playbook. |
+| `05_production_blueprint.md` | Infrastructure, scaling playbook, observability, cost model. |
+
+**Example business glossary:**
+
+```markdown
+# Business Glossary
+
+> Stable IDs for business entities, domain terms, and events.
+> Cross-references technical glossary IDs where business entities map to code.
+
+## Business Entities
+
+| Stable ID | Name | Description | Technical ID |
+|-----------|------|-------------|-------------|
+| BIZ_SUBSCRIPTION | Subscription | Monthly or annual subscription plan | USR (User owns subscription) |
+| BIZ_INVOICE | Invoice | Generated invoice for billing period | ORD (Order generates invoice) |
+
+## Business Events
+
+| Stable ID | Name | Trigger | Business Impact |
+|-----------|------|---------|----------------|
+| BIZ_TRIAL_STARTED | Trial Started | User signs up | Starts 14-day trial period |
+| BIZ_SUBSCRIPTION_RENEWED | Subscription Renewed | Billing cycle ends | MRR recognized |
+
+## Business Metrics
+
+| Metric ID | Name | Definition | Target |
+|-----------|------|-----------|--------|
+| MRR | Monthly Recurring Revenue | Sum of active subscription values | $100K |
+| CHURN_RATE | Monthly Churn Rate | Cancelled subscriptions / total subscriptions | <5% |
+```
+
+### Conventions
+
+Every spec follows these conventions:
+
+- Starts with a **Purpose** section
+- Ends with **Owner / Reviewers / Last updated**
+- Uses stable IDs from glossaries (e.g., `INV-001`, `EVT_USER_CREATED`)
+- Cross-references other specs by file name
+- Uses tables for feature matrices, invariants, and schemas
+- Uses checklists for acceptance criteria
+
+**Example module spec:**
+
+```markdown
+# Authentication Module (MOD_AUTH)
+
+## Purpose
+
+Provides user authentication, session management, and OAuth2 integration.
+
+## Requirements
+
+| Req ID | Requirement | Priority | Source |
+|--------|-------------|----------|--------|
+| MOD_AUTH-R01 | Support email/password auth | P0 | User persona: Developer |
+| MOD_AUTH-R02 | Support GitHub OAuth | P0 | User persona: Developer |
+| MOD_AUTH-R03 | Support Google OAuth | P1 | User persona: End user |
+
+## Features
+
+| Feature | User Story | Acceptance Criteria | Complexity |
+|---------|-----------|---------------------|------------|
+| Email/password auth | As a developer, I want to sign up with email so I can create an account quickly | <ul><li>Email validation</li><li>Password strength check</li><li>Email verification flow</li></ul> | M |
+
+## Dependencies
+
+| Depends On | Type | Notes |
+|-----------|------|-------|
+| MOD_API | hard | API endpoints for auth routes |
+| MOD_DATA | hard | User entity storage |
+
+## Invariants
+
+| Invariant | Enforcement |
+|-----------|-------------|
+| All passwords must be hashed with bcrypt | Enforced at service layer |
+| Sessions expire after 7 days | Enforced by session middleware |
+
+---
+
+**Owner / Reviewers / Last updated**
+Owner: Backend Team
+Reviewers: Security Team
+Last updated: 2026-03-04
+```
+
+## docs/adr/ — Architecture Decision Records
+
+Numbered records capture significant architectural decisions, their context, and consequences.
+
+### ADR Format
+
+| File | Purpose |
+|------|---------||
+| `0001_template.md` | ADR template with required sections |
+| `0002_{decision}.md` | Actual decisions, numbered sequentially |
+
+Each ADR includes:
+
+- **Status**: Proposed / Accepted / Deprecated / Superseded
+- **Date**: When decided
+- **Scope**: Technical / Business / Both
+- **Decision Makers**: Who decided
+- **Context**: Why this decision is needed (business + technical)
+- **Decision**: What was decided and why
+- **Alternatives Considered**: Pros/cons table
+- **Consequences**: Positive, negative, risks
+
+**Example ADR:**
+
+```markdown
+# ADR-0002: Use PostgreSQL for Primary Database
+
+## Status
+
+Accepted
+
+## Date
+
+2026-02-15
+
+## Scope
+
+Technical
+
+## Decision Makers
+
+Backend Team, CTO
+
+## Context
+
+We need a relational database for user data, orders, and products. Requirements:
+- ACID transactions for payment processing
+- JSON support for flexible product attributes
+- Full-text search for product catalog
+- Horizontal scaling potential
+- Strong ecosystem and tooling
+
+## Decision
+
+Use PostgreSQL 15 as the primary database.
+
+## Alternatives Considered
+
+| Alternative | Pros | Cons | Why Not |
+|-------------|------|------|---------||
+| MySQL | Mature, widely used | Weaker JSON support, less advanced features | PostgreSQL's JSON and full-text search are superior |
+| MongoDB | Native JSON, horizontal scaling | No ACID transactions, eventual consistency | We need strong consistency for payments |
+
+## Consequences
+
+### Positive
+
+- ACID transactions ensure payment integrity
+- JSONB type allows flexible product schemas
+- Built-in full-text search with tsvector
+- Robust tooling (Prisma, pg_dump, pgAdmin)
+
+### Negative
+
+- Horizontal scaling requires read replicas and eventual sharding
+- Team needs PostgreSQL expertise (vs. more familiar MySQL)
+
+### Risks
+
+- **Scaling complexity**: Sharding PostgreSQL is non-trivial. Mitigation: Start with vertical scaling and read replicas; evaluate sharding solutions (Citus, partitioning) if we exceed 1M users.
+- **Cost**: Managed PostgreSQL (AWS RDS) is more expensive than MySQL. Mitigation: Start with small instance; scale as revenue grows.
+```
+
+## docs/process/ — Process Documentation (Optional)
+
+Guides for recurring workflows — how the team ships, reviews, and maintains the project.
+
+**Examples:**
+- Branching strategy
+- Release process
+- On-call runbook
+- Code review checklist
+- Agent delegation guidelines
+
+## Relationship to GSD Framework
+
+The [GSD (Get Shit Done)](https://github.com/gsd-build/get-shit-done) framework is a spec-driven development system for AI coding assistants. hatch3r shares GSD's conviction that structured documentation prevents context degradation.
+
+### Shared Principles
+
+- Documentation is the primary context source for AI agents, not just for humans
+- Specifications are modular and scoped to single domains (not monolithic)
+- State and decisions are captured in version-controlled markdown
+- Stable identifiers enable reliable cross-referencing
+
+### Structural Differences
+
+| Concern | GSD | hatch3r |
+|---------|-----|---------||
+| Project state | `STATE.md` (single file, session memory) | `docs/specs/` (distributed across domain specs) |
+| Requirements | `REQUIREMENTS.md` (flat, phase-tagged) | `docs/specs/*.md` (modular, per-domain with stable IDs) |
+| Architectural decisions | Inline in `STATE.md` or plans | `docs/adr/` (dedicated, numbered, templated) |
+| Project vision | `PROJECT.md` | `docs/specs/00_glossary.md` + project README |
+| Process docs | Encoded in GSD commands and agents | `docs/process/` (explicit, human-readable guides) |
+| Planning artifacts | `.planning/` (research, plans, summaries) | GitHub Issues + board commands |
+| Scope | Single-project, single-runtime | Multi-project, multi-editor via adapters |
+
+**GSD optimizes** for a linear milestone-driven workflow with a single AI runtime.
+
+**hatch3r's `docs/` structure** is editor-agnostic and designed to be consumed by any agent system — Cursor, Copilot, Claude Code, OpenCode, or custom tooling. The explicit `docs/adr/` directory reflects hatch3r's emphasis on long-lived, multi-contributor projects where architectural decisions need formal traceability.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use stable IDs everywhere">
+    Reference entities, events, and modules by their stable IDs from glossaries across all docs, issues, and code comments.
+  </Accordion>
+  
+  <Accordion title="Keep specs modular">
+    One spec per domain/module. Avoid monolithic spec files that become difficult to navigate.
+  </Accordion>
+  
+  <Accordion title="Cross-reference liberally">
+    Link between business and technical specs using stable IDs. This helps stakeholders trace business requirements to technical implementation.
+  </Accordion>
+  
+  <Accordion title="Update specs as you implement">
+    Specs are living documents. When implementation reveals new constraints or edge cases, update the spec.
+  </Accordion>
+  
+  <Accordion title="Create ADRs for significant decisions">
+    Anything that affects architecture, tech stack, or business strategy deserves an ADR. Future you (and your team) will thank you.
+  </Accordion>
+  
+  <Accordion title="Mark superseded ADRs">
+    When you change a decision, update the old ADR's status to "Superseded by ADR-XXXX" and create a new ADR.
+  </Accordion>
+  
+  <Accordion title="Use the docs-writer agent">
+    The `docs-writer` agent reads source code and maintains specs automatically, keeping them in sync with implementation.
+  </Accordion>
+</AccordionGroup>
+
+## Generating Documentation
+
+### For Greenfield Projects
+
+Run `project-spec` to generate complete documentation from your vision:
+
+- Spawns 7 parallel researcher sub-agents (stack, features, architecture, pitfalls, UX, business, production)
+- Produces `docs/specs/business/` and `docs/specs/technical/`
+- Generates ADRs for key decisions
+- Creates initial `todo.md`
+
+See [Greenfield Projects Guide](/guides/greenfield-projects) for details.
+
+### For Brownfield Projects
+
+Run `codebase-map` to reverse-engineer documentation:
+
+- Spawns 6 parallel analyzer sub-agents (modules, conventions, tech stack, debt, business domain, production readiness)
+- Produces `docs/specs/business/` and `docs/specs/technical/` inferred from code
+- Generates ADRs marked "Inferred" for discovered decisions
+- Optionally generates `docs/codebase-health.md`
+
+See [Brownfield Projects Guide](/guides/brownfield-projects) for details.
+
+## Maintaining Documentation
+
+### Keeping Specs in Sync
+
+The `docs-writer` agent keeps specs synchronized with code:
+
+1. Reads source code to detect changes
+2. Updates relevant spec files
+3. Preserves stable IDs and cross-references
+4. Adds "Last updated" timestamps
+
+### Updating ADRs
+
+When you change an architectural decision:
+
+<Steps>
+  <Step title="Update old ADR status">
+    Change status to "Superseded by ADR-XXXX"
+  </Step>
+  
+  <Step title="Create new ADR">
+    Number it sequentially, reference the old decision
+  </Step>
+  
+  <Step title="Document why you changed">
+    Explain what you learned or what changed in context
+  </Step>
+</Steps>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Greenfield Projects" icon="seedling" href="/guides/greenfield-projects">
+    Generate specs from project vision
+  </Card>
+  
+  <Card title="Brownfield Projects" icon="building" href="/guides/brownfield-projects">
+    Reverse-engineer specs from code
+  </Card>
+  
+  <Card title="Workflow Guide" icon="diagram-project" href="/guides/workflow">
+    Full project lifecycle
+  </Card>
+  
+  <Card title="docs-writer Agent" icon="pen-to-square" href="/agents/docs-writer">
+    Learn about the docs-writer agent
+  </Card>
+</CardGroup>

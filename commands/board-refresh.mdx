@@ -1,0 +1,334 @@
+---
+title: board-refresh
+description: Regenerate the living board overview dashboard from current board state with health metrics and implementation lanes
+---
+
+## Overview
+
+Scan all open issues on your repository, compute board health metrics, build implementation lanes from dependency analysis, and regenerate the `meta:board-overview` dashboard issue with current data, model recommendations, and health diagnostics.
+
+## Purpose
+
+The `board-refresh` command provides a lightweight, read-heavy operation that:
+
+- **Scans the entire board**: Fetches all open issues, labels, sub-issues, and dependencies
+- **Computes health metrics**: Status distribution, missing metadata, dependency health, stale issues
+- **Builds implementation lanes**: Dependency-aware ordering with parallel work identification
+- **Assigns model recommendations**: Quality-first heuristic for each issue
+- **Regenerates dashboard**: Updates or creates the `meta:board-overview` issue
+
+The only mutation is updating (or creating) the single board overview issue.
+
+## When to Use
+
+Run `board-refresh` when:
+
+- You want an updated view of board health without running a full board command
+- Issues have been closed or updated outside of hatch3r commands
+- You need to see current implementation lanes and parallel work opportunities
+- The board overview is out of sync with actual board state
+- You want to check for stale issues, missing metadata, or dependency problems
+
+## Workflow
+
+<Steps>
+
+### Read Configuration
+
+1. **Read `/.agents/hatch.json`**
+   - Caches full config (top-level and `board` section)
+   - Resolves owner/repo (top-level first, falls back to `board.owner`/`board.repo`)
+
+2. **Validate configuration**
+   - Aborts if owner and repo are missing
+   - Notes `board.projectNumber` for Projects v2 sync
+
+### Full Board Scan
+
+Performs ONE comprehensive scan and caches everything:
+
+1. **Fetch open issues**
+   - Uses `gh issue list` (primary) or `list_issues` MCP (fallback)
+   - Retrieves all open issues with labels, state, timestamps, body
+   - Paginates if necessary (up to 500 issues per page)
+
+2. **Check for sub-issues**
+   - Uses `issue_read` with `method: get_sub_issues`
+   - Caches parent-child relationships
+
+3. **Parse dependencies**
+   - Extracts from `## Dependencies` sections in issue bodies
+   - Recognizes hard dependencies (`Blocked by #N`, `Depends on #N`)
+   - Recognizes soft dependencies (`Recommended after #N`)
+   - Tracks dependency type for each edge
+
+4. **Categorize issues**
+   - **Epic**: has sub-issues
+   - **Sub-issue**: child of an epic
+   - **Standalone**: neither parent nor child
+   - **Excludes**: `meta:board-overview` from all analysis
+
+### Compute Board Health & Metrics
+
+Analyzes cached data to produce diagnostics:
+
+1. **Status distribution**
+   - Counts per status label: triage, ready, in-progress, in-review, blocked
+
+2. **Missing metadata detection**
+   - Flags issues missing required labels: `type:*`, `priority:*`, `executor:*`
+   - Notes missing optional labels: `area:*`, `risk:*`
+
+3. **Dependency health**
+   - Builds dependency graph from parsed sections
+   - Identifies blocked chains (unsatisfied hard blockers)
+   - Counts issues with `has-dependencies` label
+   - **Epic ordering consistency**: Compares `## Implementation Order` against DAG from sub-issue dependencies, flags discrepancies
+   - **Cross-epic dependencies**: Aggregates dependencies between different epics
+
+4. **Stale issue detection**
+   - `status:triage` with no update in 14+ days
+   - `status:in-progress` with no update in 7+ days
+
+5. **Lane computation & dependency-waiting partition**
+   - Uses Lane Computation Algorithm from `hatch3r-board-shared`
+   - Partitions `status:ready` issues into:
+     - **Available**: all hard blockers satisfied
+     - **Dependency-waiting**: unsatisfied hard blockers
+   - Computes parallel lanes from available issues only
+
+### Regenerate Board Overview
+
+Builds dashboard body following Board Overview Issue Format:
+
+1. **Model assignment**
+   - Applies Model Selection Heuristic (Quality-First) to each open issue
+   - Assigns model recommendation based on type, risk, complexity
+
+2. **Compose dashboard body**
+   - **Status Summary**: counts from status distribution
+   - **In Progress**: issues with `status:in-progress`
+   - **In Review**: issues with `status:in-review`
+   - **Implementation Lanes**: available issues from lane computation (includes `Model` column)
+   - **Cross-Epic Dependencies**: from dependency health analysis (omit if none)
+   - **Waiting on Dependencies**: dependency-waiting issues from partition
+   - **Externally Blocked**: issues with `status:blocked`
+   - **Backlog / Triage**: issues with `status:triage`
+   - **Board Health**: missing metadata, stale issues, blocked chains, epic ordering discrepancies
+
+### Update Overview Issue
+
+1. **Find existing overview issue**
+   - Searches cached inventory for `meta:board-overview` label
+   - Uses lowest issue number if multiple found (warns about duplicates)
+
+2. **Update or create**
+   - **If found**: Updates issue body using `gh issue edit` (primary) or `issue_write` MCP (fallback)
+   - **If not found**: Creates new issue with `gh issue create` or `issue_write`, then adds to project board with status "Backlog"
+
+3. **Present summary**
+   - Confirmation with project info
+   - Overview issue number (updated or created)
+   - Open issue counts by category
+   - Status breakdown
+   - Lane count and available issues
+   - Health metrics
+
+</Steps>
+
+## Configuration in hatch.json
+
+Reads configuration from `/.agents/hatch.json`:
+
+```json
+{
+  "owner": "your-org",
+  "repo": "your-repo",
+  "board": {
+    "owner": "your-org",
+    "repo": "your-repo",
+    "defaultBranch": "main",
+    "projectNumber": 1,
+    "statusFieldId": "PVTF_...",
+    "statusOptions": {
+      "backlog": "option_id_1",
+      "ready": "option_id_2",
+      "inProgress": "option_id_3",
+      "inReview": "option_id_4",
+      "done": "option_id_5"
+    }
+  }
+}
+```
+
+## Examples
+
+### Refresh After Manual Issue Updates
+
+```
+User: board-refresh
+
+Agent: [Reads /.agents/hatch.json]
+[Fetches all open issues from acme-corp/platform...]
+[Parses dependencies and categorizes issues...]
+[Computes board health metrics...]
+[Assigns model recommendations...]
+[Generates dashboard body...]
+[Updates issue #1 with new dashboard...]
+
+Board Refresh Complete:
+  Project:        acme-corp/platform
+  Overview issue: #1 (updated)
+  Open issues:    42 (5 epics, 18 sub-issues, 19 standalone)
+  Status:         15 ready (12 available, 3 waiting on deps), 8 in progress, 4 in review, 0 ext. blocked, 15 triage
+  Lanes:          3 parallel lanes (12 available issues)
+  Health:         7 issues missing metadata, 3 stale, 2 blocked chains
+```
+
+### Refresh When No Overview Exists
+
+```
+User: Run board-refresh
+
+Agent: [Scans board...]
+[No meta:board-overview issue found]
+[Creates new board overview issue...]
+[Adds to project board with status Backlog...]
+
+Board Refresh Complete:
+  Project:        acme-corp/platform
+  Overview issue: #87 (created)
+  Open issues:    28 (3 epics, 12 sub-issues, 13 standalone)
+  Status:         10 ready (8 available, 2 waiting on deps), 5 in progress, 2 in review, 1 ext. blocked, 10 triage
+  Lanes:          2 parallel lanes (8 available issues)
+  Health:         4 issues missing metadata, 2 stale, 1 blocked chain
+```
+
+### Refresh Shows Health Issues
+
+```
+User: board-refresh
+
+Agent: [Scans board...]
+[Detects health issues...]
+
+Board Refresh Complete:
+  Project:        acme-corp/platform
+  Overview issue: #1 (updated)
+  Open issues:    35 (4 epics, 15 sub-issues, 16 standalone)
+  Status:         12 ready (9 available, 3 waiting on deps), 6 in progress, 3 in review, 2 ext. blocked, 12 triage
+  Lanes:          3 parallel lanes (9 available issues)
+  Health:         10 issues missing metadata, 5 stale, 3 blocked chains
+
+Board Health details (see overview issue #1):
+  Missing metadata:
+    - #12: no priority, no area
+    - #15: no executor
+    - #18: no type
+    [... 7 more]
+  
+  Stale issues:
+    - #22: status:triage, no update in 16 days
+    - #35: status:in-progress, no update in 9 days
+    [... 3 more]
+  
+  Blocked chains:
+    - #42 blocked by #41 (open)
+    - #48 blocked by #47 (open), #47 blocked by #46 (open)
+    [... 1 more]
+```
+
+### Refresh Detects Epic Ordering Discrepancies
+
+```
+User: Refresh the board
+
+Agent: [Scans board...]
+[Compares epic implementation orders against dependency DAGs...]
+
+Board Refresh Complete:
+  Project:        acme-corp/platform
+  Overview issue: #1 (updated)
+  Open issues:    38 (4 epics, 16 sub-issues, 18 standalone)
+  Status:         14 ready (11 available, 3 waiting on deps), 7 in progress, 3 in review, 0 ext. blocked, 14 triage
+  Lanes:          3 parallel lanes (11 available issues)
+  Health:         5 issues missing metadata, 2 stale, 1 blocked chain, 1 epic ordering discrepancy
+
+Warning: Epic #45 ordering discrepancy detected:
+  - Epic lists #48 in Level 1, but #48 depends on #46 (also in epic)
+  - Recommendation: Run board-fill to regenerate implementation order from dependencies
+```
+
+## Board Overview Issue Format
+
+The generated dashboard includes:
+
+### Status Summary
+
+Table with counts for each status category.
+
+### In Progress
+
+Issues currently being worked on, with type, executor, priority, and recommended model.
+
+### In Review
+
+Issues in code review, with associated PR links.
+
+### Implementation Lanes
+
+Available work grouped into parallel lanes based on dependency analysis. Each issue shows:
+- Issue number and title
+- Type, executor, priority labels
+- Recommended model (from Model Selection Heuristic)
+- Dependencies (if any)
+
+### Cross-Epic Dependencies (if any)
+
+Epic-level dependency relationships derived from sub-issue blockers.
+
+### Waiting on Dependencies
+
+`status:ready` issues blocked by unsatisfied hard dependencies.
+
+### Externally Blocked
+
+Issues with `status:blocked` (external blockers, not dependency blockers).
+
+### Backlog / Triage
+
+Issues with `status:triage` needing classification and scoping.
+
+### Board Health
+
+- Missing metadata (issues lacking required labels)
+- Stale issues (no updates in 7-14+ days)
+- Blocked chains (dependency chains with open blockers)
+- Epic ordering discrepancies (implementation order vs. dependency DAG mismatches)
+
+## Integration with GitHub Agentic Workflows
+
+hatch3r's board commands operate as the **implementation orchestration layer** above GitHub Agentic Workflows:
+
+- **board-init** sets up the project management structure
+- **board-fill** creates the work items
+- **board-pickup** orchestrates the implementation pipeline
+- **board-refresh** regenerates the living dashboard without running a full board command
+
+Use agentic workflows for continuous background automation, use hatch3r board commands for structured delivery orchestration.
+
+## Error Handling
+
+- **`gh issue list` failure**: Retries once, falls back to `list_issues` MCP. If both fail, aborts with auth/access error message
+- **`gh issue edit/create` failure**: Retries once, falls back to `issue_write` MCP. If both fail, presents dashboard body for manual update
+- **`issue_read` (sub-issues) failure**: Warns and continues. Epic/sub-issue relationships incomplete; noted in summary
+- **Projects v2 sync failure** (new overview issue only): Warns and continues. Issue created but not added to board
+
+## Guardrails
+
+- Never modifies any issue other than `meta:board-overview` (read-only for all other issues)
+- Excludes board overview issue from its own listings
+- One board overview issue at a time (updates oldest if multiple found, warns about duplicates)
+- Follows GitHub CLI-first approach (gh CLI primary, MCP fallback)
+- No ASK checkpoints (runs to completion without user prompts)
+- Respects Model Selection Heuristic (always includes `Model` column in issue listings)

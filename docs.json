@@ -1,122 +1,263 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "hatch3r",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#cb0404",
+    "light": "#f3d2d2",
+    "dark": "#e37b84"
   },
-  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "https://media.brand.dev/7316e6d5-0198-4785-94cd-cb9b972e0c98.png",
+    "dark": "https://media.brand.dev/d0bd54b1-0a8c-48a1-8fc0-be53e565a398.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/hatch3r/hatch3r"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/hatch3r/hatch3r"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation",
+              "supported-tools"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/overview",
+              "concepts/agents",
+              "concepts/skills",
+              "concepts/rules",
+              "concepts/commands",
+              "concepts/mcp",
+              "concepts/adapters",
+              "concepts/board-management",
+              "concepts/sub-agentic-architecture"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/workflow",
+              "guides/greenfield-projects",
+              "guides/brownfield-projects",
+              "guides/mcp-setup",
+              "guides/model-selection",
+              "guides/customization",
+              "guides/documentation-structure",
+              "guides/troubleshooting"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "CLI Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Commands",
             "pages": [
-              "api-reference/introduction"
+              "cli/init",
+              "cli/sync",
+              "cli/update",
+              "cli/validate",
+              "cli/status",
+              "cli/add"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agent Commands",
+        "groups": [
+          {
+            "group": "Board Management",
+            "pages": [
+              "commands/board-init",
+              "commands/board-fill",
+              "commands/board-pickup",
+              "commands/board-refresh"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Planning",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "commands/project-spec",
+              "commands/codebase-map",
+              "commands/roadmap",
+              "commands/feature-plan",
+              "commands/bug-plan",
+              "commands/refactor-plan"
+            ]
+          },
+          {
+            "group": "Quality & Security",
+            "pages": [
+              "commands/healthcheck",
+              "commands/security-audit",
+              "commands/dep-audit"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "commands/workflow",
+              "commands/release",
+              "commands/hooks",
+              "commands/learn"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "commands/context-health",
+              "commands/cost-tracking",
+              "commands/recipe",
+              "commands/agent-customize",
+              "commands/command-customize",
+              "commands/skill-customize",
+              "commands/rule-customize"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agents",
+        "groups": [
+          {
+            "group": "Available Agents",
+            "pages": [
+              "agents/overview",
+              "agents/a11y-auditor",
+              "agents/ci-watcher",
+              "agents/dependency-auditor",
+              "agents/docs-writer",
+              "agents/implementer",
+              "agents/lint-fixer",
+              "agents/perf-profiler",
+              "agents/researcher",
+              "agents/reviewer",
+              "agents/security-auditor",
+              "agents/test-writer"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Skills",
+        "groups": [
+          {
+            "group": "Development Skills",
+            "pages": [
+              "skills/overview",
+              "skills/feature",
+              "skills/bug-fix",
+              "skills/refactor",
+              "skills/logical-refactor",
+              "skills/visual-refactor"
+            ]
+          },
+          {
+            "group": "Quality & Testing",
+            "pages": [
+              "skills/a11y-audit",
+              "skills/perf-audit",
+              "skills/qa-validation",
+              "skills/dep-audit"
+            ]
+          },
+          {
+            "group": "Workflow & Process",
+            "pages": [
+              "skills/issue-workflow",
+              "skills/pr-creation",
+              "skills/release",
+              "skills/incident-response",
+              "skills/architecture-review"
+            ]
+          },
+          {
+            "group": "Customization",
+            "pages": [
+              "skills/agent-customize",
+              "skills/command-customize",
+              "skills/skill-customize",
+              "skills/rule-customize",
+              "skills/recipe"
+            ]
+          },
+          {
+            "group": "Monitoring",
+            "pages": [
+              "skills/context-health",
+              "skills/cost-tracking"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Rules",
+        "groups": [
+          {
+            "group": "Code Quality",
+            "pages": [
+              "rules/overview",
+              "rules/code-standards",
+              "rules/error-handling",
+              "rules/testing",
+              "rules/dependency-management"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "rules/api-design",
+              "rules/component-conventions",
+              "rules/agent-orchestration",
+              "rules/migrations"
+            ]
+          },
+          {
+            "group": "Security & Compliance",
+            "pages": [
+              "rules/security-patterns",
+              "rules/observability",
+              "rules/feature-flags"
+            ]
+          },
+          {
+            "group": "User Experience",
+            "pages": [
+              "rules/i18n",
+              "rules/theming",
+              "rules/browser-verification",
+              "rules/performance-budgets"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "rules/git-conventions",
+              "rules/learning-consult",
+              "rules/tooling-hierarchy"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

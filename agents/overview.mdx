@@ -1,0 +1,123 @@
+---
+title: Agents Overview
+description: Specialized AI agents that power the hatch3r development workflow, from implementation to security auditing.
+---
+
+Hatch3r uses a suite of 11 specialized agents to handle different aspects of software development. Each agent is focused on a specific domain and can be invoked independently or orchestrated together for complex workflows.
+
+## Agent Delegation Model
+
+Agents follow a clear hierarchy:
+
+- **Orchestrator agents** (like the main hatch3r agent) coordinate workflows, manage git operations, and delegate to specialized agents
+- **Specialized agents** focus on a single domain and return structured results without handling git, branches, commits, or PRs
+- **Sub-agents** can be spawned in parallel for large-scale operations (e.g., auditing multiple modules simultaneously)
+
+All agents follow the **tooling hierarchy**: project specs → codebase exploration → Context7 MCP → web research. They prefer `gh` CLI over GitHub MCP tools for standard operations.
+
+## The 11 Specialized Agents
+
+### [Accessibility Auditor](/agents/a11y-auditor)
+WCAG AA compliance specialist who audits accessibility across web apps and embedded surfaces. Verifies keyboard navigation, color contrast, ARIA attributes, and reduced motion support.
+
+**Use when:** Auditing accessibility, reviewing UI components, or fixing a11y issues.
+
+### [CI Watcher](/agents/ci-watcher)
+CI/CD specialist who monitors GitHub Actions runs, diagnoses failures, and suggests fixes. Detects flaky tests and provides actionable fix suggestions.
+
+**Use when:** CI fails, waiting for CI results, or investigating flaky tests.
+
+### [Dependency Auditor](/agents/dependency-auditor)
+Supply chain security analyst who scans for CVEs, audits freshness, and assesses bundle impact. Enforces severity-based SLAs and verifies lockfile integrity.
+
+**Use when:** Auditing dependencies, responding to CVEs, or evaluating new packages.
+
+### [Docs Writer](/agents/docs-writer)
+Technical writer who maintains specs, ADRs, and documentation in sync with code. Ensures stable IDs and cross-references stay accurate.
+
+**Use when:** Updating documentation, writing ADRs, or keeping docs in sync with code changes.
+
+### [Implementer](/agents/implementer)
+Focused implementation agent that receives a single issue and delivers code changes and tests. Handles ONE issue per invocation without managing git operations.
+
+**Use when:** Implementing features, fixing bugs, or executing refactorings.
+
+### [Lint Fixer](/agents/lint-fixer)
+Code quality enforcer who fixes style, formatting, and TypeScript strict mode violations without changing logic. Identifies and removes dead code.
+
+**Use when:** Cleaning up lint errors, fixing formatting, or resolving type issues.
+
+### [Performance Profiler](/agents/perf-profiler)
+Performance engineer who profiles runtime performance, analyzes bundle size, and verifies changes against defined budgets.
+
+**Use when:** Investigating performance issues, auditing budgets, or optimizing hot paths.
+
+### [Researcher](/agents/researcher)
+Composable context researcher that gathers information across multiple research modes. Produces structured findings without creating artifacts.
+
+**Use when:** Gathering context for features, analyzing bugs, planning refactorings, or researching best practices.
+
+### [Reviewer](/agents/reviewer)
+Expert code reviewer who checks for quality, security, privacy invariants, performance, and spec adherence. Returns structured feedback by priority.
+
+**Use when:** Reviewing code changes, validating implementations, or auditing pull requests.
+
+### [Security Auditor](/agents/security-auditor)
+Security analyst who audits database rules, cloud functions, event metadata, and data flows. Writes security tests and validates access control.
+
+**Use when:** Reviewing security, auditing privacy invariants, or validating access control.
+
+### [Test Writer](/agents/test-writer)
+QA engineer who writes deterministic, isolated tests across unit, integration, E2E, and security rules. Focuses on correctness and edge cases.
+
+**Use when:** Writing tests, validating test coverage, or creating regression tests.
+
+## Agent Capabilities
+
+### Browser Verification
+Several agents (Accessibility Auditor, Implementer, Test Writer) can use browser automation MCP to perform live verification:
+
+- Navigate to pages in running applications
+- Test keyboard interactions and focus management
+- Verify visual rendering and contrast ratios
+- Capture screenshots as evidence
+- Check browser console for errors
+
+### Sub-Agent Delegation
+Agents that handle large-scale operations (Accessibility Auditor, Security Auditor, Performance Profiler) can spawn sub-agents to work in parallel:
+
+1. Identify audit/profiling targets
+2. Spawn one sub-agent per target using the Task tool
+3. Run operations in parallel
+4. Aggregate results into consolidated reports
+5. De-duplicate findings
+
+### Structured Output
+All agents return structured results with:
+
+- **Status** (success/partial/blocked/critical)
+- **Findings or changes** in tables or checklists
+- **Verification results**
+- **Issues encountered**
+- **Notes** for follow-up
+
+This enables orchestrators to parse results and make decisions about next steps.
+
+## Model Recommendations
+
+Agents specify recommended models in their frontmatter:
+
+- **Sonnet** (claude-sonnet) - For complex analysis: Accessibility Auditor, Dependency Auditor, Docs Writer, Researcher, Test Writer
+- **Haiku** (claude-haiku) - For focused, deterministic tasks: CI Watcher, Lint Fixer
+- **Default** - Implementer, Performance Profiler, Reviewer, Security Auditor inherit from orchestrator
+
+## Learn More
+
+Explore individual agent pages to understand:
+
+- Specific responsibilities and workflows
+- Key files and specs each agent consults
+- Commands and tools they use
+- Detailed output formats
+- Boundaries and escalation criteria
+- Real examples of agent invocations and results

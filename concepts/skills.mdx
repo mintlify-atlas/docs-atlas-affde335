@@ -1,0 +1,393 @@
+---
+title: Skills
+description: Composable workflows for bugs, features, refactors, releases, and audits
+---
+
+Skills are structured workflows that combine agents, rules, and commands into repeatable processes. hatch3r includes 25 skills organized by category.
+
+## Skill Structure
+
+Each skill is defined in `/.agents/skills/{skill-name}/SKILL.md` with frontmatter:
+
+```yaml
+---
+id: hatch3r-bug-fix
+description: Diagnose root cause, implement minimal fix, write regression test
+---
+```
+
+Skills define:
+- **Workflow steps**: Ordered phases from analysis to verification
+- **Agent delegation**: Which agents to spawn and when
+- **Quality gates**: Tests, verification, DoD checklists
+- **Artifacts**: What files/docs to produce
+
+## The 25 Skills
+
+### Development Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-bug-fix" icon="bug">
+    **Purpose**: Diagnose root cause, implement minimal fix, write regression test
+    
+    **Workflow**:
+    1. Parse issue (symptoms, reproduction steps, expected vs actual)
+    2. Research (spawn `hatch3r-researcher` with modes: `symptom-trace`, `root-cause`, `impact-analysis`)
+    3. Diagnose root cause
+    4. Implement minimal fix
+    5. Write regression test that fails before fix, passes after
+    6. Verify no new issues introduced
+    
+    **TDD Option**: Test-first workflow (write failing test → implement fix → verify)
+    
+    **Invoked by**: `hatch3r-implementer` when issue type is `type:bug`
+  </Accordion>
+  
+  <Accordion title="hatch3r-feature" icon="sparkles">
+    **Purpose**: End-to-end feature implementation as a vertical slice
+    
+    **Workflow**:
+    1. Parse acceptance criteria and scope
+    2. Research (spawn `hatch3r-researcher` with modes: `codebase-impact`, `feature-design`, `architecture`)
+    3. Design data model, API contracts, components
+    4. Implement full vertical slice (data → logic → API → UI)
+    5. Write tests (unit, integration, E2E)
+    6. Verify against acceptance criteria
+    
+    **TDD Option**: Test-first workflow available
+    
+    **Invoked by**: `hatch3r-implementer` when issue type is `type:feature`
+  </Accordion>
+  
+  <Accordion title="hatch3r-refactor" icon="arrows-rotate">
+    **Purpose**: Internal code quality improvement without changing external behavior
+    
+    **Workflow**:
+    1. Define behavioral invariants (what must not change)
+    2. Write behavioral preservation tests
+    3. Refactor incrementally
+    4. Verify invariants hold after each step
+    5. Remove dead code
+    
+    **Invoked by**: `hatch3r-implementer` when issue type is `type:refactor` (non-UI, non-logic)
+  </Accordion>
+  
+  <Accordion title="hatch3r-logical-refactor" icon="diagram-project">
+    **Purpose**: Change business logic or data flows without adding features
+    
+    **Workflow**:
+    1. Document current behavior
+    2. Define new behavior and migration path
+    3. Implement with explicit invariant tracking
+    4. Update tests to match new behavior
+    5. Verify no unintended side effects
+    
+    **Invoked by**: `hatch3r-implementer` when issue type is `type:refactor` + behavior change
+  </Accordion>
+  
+  <Accordion title="hatch3r-visual-refactor" icon="palette">
+    **Purpose**: UI/UX changes matching design mockups
+    
+    **Workflow**:
+    1. Parse design requirements (mockups, specs)
+    2. Implement UI changes
+    3. Verify WCAG AA accessibility
+    4. Verify responsiveness (mobile, tablet, desktop)
+    5. Browser verification with screenshots
+    
+    **Invoked by**: `hatch3r-implementer` when issue type is `type:refactor` + `area:ui`
+  </Accordion>
+  
+  <Accordion title="hatch3r-migration" icon="truck">
+    **Purpose**: Framework, library, or API migration
+    
+    **Workflow**:
+    1. Analyze current usage patterns
+    2. Design migration strategy (big bang vs incremental)
+    3. Implement adapter/compatibility layer if needed
+    4. Migrate incrementally with verification
+    5. Remove compatibility shims
+    
+    **Invoked by**: `refactor-plan` command for migration dimension
+  </Accordion>
+</AccordionGroup>
+
+### Quality & Validation Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-qa-validation" icon="clipboard-check">
+    **Purpose**: E2E validation workflow with structured pass/fail reports
+    
+    **Workflow**:
+    1. Load test plan from issue
+    2. Execute test cases
+    3. Document evidence (screenshots, logs, recordings)
+    4. Produce structured report with ship/hold recommendation
+    
+    **Invoked by**: `hatch3r-implementer` when issue type is `type:qa`
+  </Accordion>
+  
+  <Accordion title="hatch3r-a11y-audit" icon="universal-access">
+    **Purpose**: Comprehensive WCAG AA audit with automated scanning and manual verification
+    
+    **Workflow**:
+    1. Run automated accessibility scanners
+    2. Manual keyboard navigation testing
+    3. Screen reader verification
+    4. Color contrast checks
+    5. Produce findings with severity ratings
+    6. Implement fixes
+    
+    **Invoked by**: `a11y-audit` command or when UI changes need accessibility review
+  </Accordion>
+  
+  <Accordion title="hatch3r-perf-audit" icon="gauge-high">
+    **Purpose**: Profile and optimize against defined performance budgets
+    
+    **Workflow**:
+    1. Establish baseline metrics
+    2. Profile performance (runtime, bundle, network)
+    3. Identify bottlenecks
+    4. Implement optimizations with before/after measurements
+    5. Verify against performance budgets
+    
+    **Invoked by**: `perf-audit` command or performance-sensitive changes
+  </Accordion>
+  
+  <Accordion title="hatch3r-dep-audit" icon="shield">
+    **Purpose**: Audit npm dependencies for CVEs and freshness
+    
+    **Workflow**:
+    1. Run `npm audit` and `npm outdated` across workspaces
+    2. Categorize by severity (CVEs, major/minor/patch outdated)
+    3. Research migration paths via Context7 and web search
+    4. Upgrade packages one at a time with testing after each
+    5. Create tracking issues for unaddressed items
+    
+    **Invoked by**: `dep-audit` command
+  </Accordion>
+</AccordionGroup>
+
+### Planning & Architecture Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-architecture-review" icon="compass-drafting">
+    **Purpose**: Evaluate architectural decisions and produce ADRs
+    
+    **Workflow**:
+    1. Parse architectural question/decision
+    2. Research options with pros/cons
+    3. Evaluate against project constraints
+    4. Recommend decision
+    5. Produce ADR following project template
+    
+    **Invoked by**: `feature-plan`, `refactor-plan` when architectural decisions needed
+  </Accordion>
+  
+  <Accordion title="hatch3r-api-spec" icon="file-contract">
+    **Purpose**: Design API specifications with contracts and validation
+    
+    **Workflow**:
+    1. Define endpoint contracts (request/response schemas)
+    2. Design validation rules
+    3. Specify error responses
+    4. Document authentication/authorization
+    5. Produce OpenAPI/JSON Schema spec
+    
+    **Invoked by**: Feature planning for API-heavy work
+  </Accordion>
+</AccordionGroup>
+
+### Workflow & Process Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-issue-workflow" icon="list-check">
+    **Purpose**: 8-step agentic development workflow for GitHub issues
+    
+    **Workflow**:
+    1. Parse the issue
+    2. Load the issue-type skill
+    3. Read relevant specs
+    4. Produce a plan
+    4b. Sub-agent delegation (spawn implementer)
+    5. Implement
+    6. Test
+    6b. Browser verification (if UI)
+    7. Open PR
+    8. Address review
+    
+    **Delegation**: Every issue MUST be delegated to `hatch3r-implementer` sub-agent
+    
+    **Invoked by**: `board-pickup`, plain chat with issue references
+  </Accordion>
+  
+  <Accordion title="hatch3r-pr-creation" icon="code-pull-request">
+    **Purpose**: Create pull requests following project conventions
+    
+    **Workflow**:
+    1. Parse PR template
+    2. Generate title (type: short description)
+    3. Fill PR body (summary, changes, testing, rollout)
+    4. Link related issues (Closes #N, Relates to #epic)
+    5. Self-review against DoD
+    
+    **Invoked by**: `board-pickup` Step 8, `issue-workflow` Step 7
+  </Accordion>
+  
+  <Accordion title="hatch3r-incident-response" icon="fire">
+    **Purpose**: Structured triage, mitigation, root cause analysis, post-mortem
+    
+    **Workflow**:
+    1. Triage (severity, impact, affected users)
+    2. Immediate mitigation
+    3. Root cause investigation (spawn `hatch3r-researcher`)
+    4. Permanent fix
+    5. Post-mortem with follow-up issues
+    
+    **Invoked by**: Production incidents, high-severity bugs
+  </Accordion>
+  
+  <Accordion title="hatch3r-release" icon="rocket">
+    **Purpose**: Cut a release with semantic versioning and changelog
+    
+    **Workflow**:
+    1. Determine version bump from merged PR classifications
+    2. Generate grouped changelog (features, fixes, refactors, docs, infra)
+    3. Run quality gates
+    4. Bump `package.json`
+    5. Create git tag
+    6. Publish GitHub release with notes
+    7. Optionally verify deployment
+    
+    **Invoked by**: `release` command
+  </Accordion>
+</AccordionGroup>
+
+### Customization Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-agent-customize" icon="robot">
+    **Purpose**: Configure per-agent customization via `.customize.yaml` files
+    
+    **Allows**: Model overrides, additional instructions, context augmentation
+    
+    **Invoked by**: `agent-customize` command
+  </Accordion>
+  
+  <Accordion title="hatch3r-command-customize" icon="terminal">
+    **Purpose**: Configure per-command customization via `.customize.yaml` files
+    
+    **Invoked by**: `command-customize` command
+  </Accordion>
+  
+  <Accordion title="hatch3r-skill-customize" icon="wand-magic-sparkles">
+    **Purpose**: Configure per-skill customization via `.customize.yaml` files
+    
+    **Invoked by**: `skill-customize` command
+  </Accordion>
+  
+  <Accordion title="hatch3r-rule-customize" icon="gavel">
+    **Purpose**: Configure per-rule customization via `.customize.yaml` files
+    
+    **Invoked by**: `rule-customize` command
+  </Accordion>
+</AccordionGroup>
+
+### Monitoring & Observability Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-context-health" icon="heartbeat">
+    **Purpose**: Monitor conversation context health during long agent sessions
+    
+    **Provides**: Token usage metrics, context window utilization, degradation warnings
+    
+    **Invoked by**: `context-health` command
+  </Accordion>
+  
+  <Accordion title="hatch3r-cost-tracking" icon="dollar-sign">
+    **Purpose**: Track token usage and estimated costs across agent workflows
+    
+    **Provides**: Per-command and per-agent cost breakdowns with budget alerts
+    
+    **Invoked by**: `cost-tracking` command
+  </Accordion>
+  
+  <Accordion title="hatch3r-recipe" icon="book">
+    **Purpose**: Create and manage composable workflow recipes
+    
+    **Allows**: Chain multiple commands/skills into repeatable sequences
+    
+    **Invoked by**: `recipe` command
+  </Accordion>
+</AccordionGroup>
+
+### CI/CD Skills
+
+<AccordionGroup>
+  <Accordion title="hatch3r-ci-pipeline" icon="circle-check">
+    **Purpose**: CI/CD pipeline setup and troubleshooting
+    
+    **Workflow**:
+    1. Design pipeline stages (test, build, deploy)
+    2. Configure GitHub Actions workflows
+    3. Set up quality gates
+    4. Configure deployment automation
+    
+    **Invoked by**: Infrastructure setup, CI configuration changes
+  </Accordion>
+  
+  <Accordion title="hatch3r-gh-agentic-workflows" icon="github">
+    **Purpose**: Set up GitHub Agentic Workflows for continuous AI automation
+    
+    **Workflow**:
+    1. Configure triage automation
+    2. Set up testing workflows
+    3. Configure documentation automation
+    4. Implement DoD verification
+    5. Configure rollback procedures
+    
+    **Integration**: Complementary to hatch3r board commands (agentic workflows = continuous background automation, board commands = structured delivery orchestration)
+    
+    **Invoked by**: Project initialization, CI/CD setup
+  </Accordion>
+</AccordionGroup>
+
+## Skill Invocation
+
+Skills are loaded and executed by:
+
+1. **Agents**: `hatch3r-implementer` loads the appropriate skill based on issue type
+2. **Commands**: Planning commands (`feature-plan`, `bug-plan`, `refactor-plan`) delegate to research skills
+3. **Direct invocation**: Users can invoke skills directly in chat (e.g., "use the bug-fix skill for this issue")
+
+## Skill Customization
+
+Override skill behavior per project using `.hatch3r/skills/{id}.customize.yaml`:
+
+```yaml
+additionalSteps:
+  - name: "Verify legacy adapter compatibility"
+    after: "implement"
+    instructions: |
+      Check that changes work with the legacy adapter layer
+      in src/adapters/legacy/ before proceeding to tests.
+```
+
+See the `skill-customize` command for interactive configuration.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Rules" icon="gavel" href="/concepts/rules">
+    Learn how rules guide skill execution
+  </Card>
+  <Card title="Commands" icon="terminal" href="/concepts/commands">
+    Explore commands that invoke skills
+  </Card>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Understand which agents skills delegate to
+  </Card>
+  <Card title="Issue Workflow" icon="list-check" href="/skills/issue-workflow">
+    Deep dive into the 8-step development workflow
+  </Card>
+</CardGroup>

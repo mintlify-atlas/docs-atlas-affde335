@@ -1,0 +1,383 @@
+---
+title: Brownfield Projects
+description: Adding hatch3r to existing codebases
+---
+
+For existing projects (brownfield), hatch3r provides reverse-engineering capabilities that analyze your codebase to generate documentation and identify improvement opportunities.
+
+## Overview
+
+The brownfield workflow:
+
+1. **Initialize** — Set up hatch3r in your existing repository
+2. **Analyze codebase** — Use `codebase-map` to reverse-engineer specs
+3. **Plan improvements** — Use `roadmap` to create a phased improvement plan
+4. **Fill board** — Generate GitHub issues with `board-fill`
+5. **Implement** — Use `board-pickup` to make improvements
+
+## 1. Initialize in Existing Repository
+
+<Steps>
+  <Step title="Navigate to repository root">
+    ```bash
+    cd /path/to/your/project
+    ```
+  </Step>
+  
+  <Step title="Install hatch3r">
+    ```bash
+    npx hatch3r init
+    ```
+  </Step>
+  
+  <Step title="Select tools">
+    Choose which coding tools you use (Cursor, Copilot, Claude Code, etc.)
+  </Step>
+  
+  <Step title="Configure MCP servers">
+    Select which MCP servers to enable for enhanced capabilities
+  </Step>
+</Steps>
+
+<Note>
+  hatch3r is safe to install in existing projects. It never modifies your source code during initialization — it only creates configuration files in `.agents/` and tool-specific directories.
+</Note>
+
+## 2. Analyze Your Codebase
+
+Run the `codebase-map` command to reverse-engineer documentation:
+
+### What codebase-map Does
+
+codebase-map spawns 6 parallel analyzer sub-agents:
+
+<CardGroup cols={2}>
+  <Card title="Module & Dependency Analyzer" icon="diagram-project">
+    Maps all modules, builds dependency graph, identifies entry points and circular dependencies
+  </Card>
+  
+  <Card title="Conventions & Patterns Analyzer" icon="code">
+    Discovers coding conventions, architectural patterns, and code style
+  </Card>
+  
+  <Card title="Tech Stack & Config Analyzer" icon="layer-group">
+    Deep dependency analysis, build pipeline, CI/CD, and infrastructure review
+  </Card>
+  
+  <Card title="Concerns & Debt Analyzer" icon="triangle-exclamation">
+    Scans for TODOs, dead code, complexity issues, missing coverage, and security concerns
+  </Card>
+  
+  <Card title="Business Domain Analyzer" icon="chart-line">
+    Reverse-engineers business logic, domain entities, revenue flows, and user journeys
+  </Card>
+  
+  <Card title="Production Readiness Analyzer" icon="server">
+    Evaluates deployment maturity, observability, scaling patterns, and reliability
+  </Card>
+</CardGroup>
+
+### Running codebase-map
+
+<Steps>
+  <Step title="Invoke the command">
+    Run `codebase-map` in your coding tool
+  </Step>
+  
+  <Step title="Review project fingerprint">
+    codebase-map detects:
+    - Languages and frameworks
+    - Package managers and build tools
+    - Databases and infrastructure
+    - Project size (~LOC, file count)
+    - Existing documentation
+  </Step>
+  
+  <Step title="Select scope">
+    Choose analysis scope:
+    - **Full codebase** — Analyze everything
+    - **Specific directories** — Focus on certain modules
+    - **Exclude directories** — Skip vendor, generated code, etc.
+  </Step>
+  
+  <Step title="Answer company stage questions">
+    Provide context about:
+    - Company stage (pre-revenue, early-revenue, growth, scale, enterprise)
+    - Team composition and size
+    - User/revenue scale
+    - Funding and runway
+    - Regulatory/compliance needs
+    - Deployment maturity
+  </Step>
+  
+  <Step title="Answer business context questions">
+    codebase-map attempts to infer business context from code, then asks you to confirm or fill gaps:
+    - Business model type
+    - Revenue model
+    - Key competitors
+    - Target market / ICP
+    - Key business metrics
+    - Go-to-market status
+    - Regulatory requirements
+  </Step>
+  
+  <Step title="Review analyzer outputs">
+    codebase-map presents a merged summary:
+    
+    **Technical Health:**
+    - Architecture pattern (detected)
+    - Module count and dependency health
+    - Test coverage estimates
+    - Technical debt severity
+    - Convention consistency
+    
+    **Business Health:**
+    - Business logic coverage
+    - Revenue path reliability
+    - User journey completeness
+    - Analytics instrumentation
+    
+    **Production Readiness:**
+    - Overall grade (A-F) calibrated to your company stage
+    - Deployment, observability, scaling, reliability grades
+    - Top concerns with recommended actions
+  </Step>
+  
+  <Step title="Review generated specs">
+    Confirm the specs to be generated:
+    
+    **Technical specs** (`docs/specs/technical/`):
+    - `00_glossary.md` — Technical entities discovered
+    - `01_overview.md` — Architecture and stack overview
+    - `02_{module}.md` — One spec per discovered module
+    
+    **Business specs** (`docs/specs/business/`):
+    - `00_business_glossary.md` — Business entities and metrics
+    - `01_business_overview.md` — Business model and market context
+    - `02_{domain}.md` — One spec per business domain
+    - `03_production_readiness.md` — Production scorecard
+  </Step>
+  
+  <Step title="Review inferred ADRs">
+    codebase-map infers architectural decisions from code patterns:
+    - Framework/language choice
+    - Database selection
+    - Architecture pattern
+    - State management approach
+    - Testing strategy
+    - API design style
+    - Auth/authorization approach
+    
+    Each ADR has status "Inferred" — change to "Accepted" for confirmed decisions
+  </Step>
+  
+  <Step title="Generate health report (optional)">
+    Optionally write `docs/codebase-health.md` with:
+    - Technical health metrics
+    - Business health metrics
+    - Production readiness scorecard
+    - Top 5 technical concerns
+    - Top 5 business concerns
+    - Strengths observed
+  </Step>
+  
+  <Step title="Generate todo.md (optional)">
+    Optionally generate `todo.md` with prioritized improvement items from the analysis
+  </Step>
+  
+  <Step title="Optional: Generate AGENTS.md">
+    Optionally create a root-level `AGENTS.md` with:
+    - Project purpose (inferred)
+    - Business context
+    - Technology stack
+    - Architecture overview
+    - Module map
+    - Key business rules
+    - Conventions discovered
+  </Step>
+</Steps>
+
+### Example Output Structure
+
+```
+my-existing-project/
+├── docs/
+│   ├── specs/
+│   │   ├── business/
+│   │   │   ├── 00_business_glossary.md
+│   │   │   ├── 01_business_overview.md
+│   │   │   ├── 02_user_management.md
+│   │   │   └── 03_production_readiness.md
+│   │   └── technical/
+│   │       ├── 00_glossary.md
+│   │       ├── 01_overview.md
+│   │       ├── 02_auth_module.md
+│   │       ├── 03_api_module.md
+│   │       └── 04_data_layer.md
+│   ├── adr/
+│   │   ├── 0001_inferred_framework_choice.md
+│   │   ├── 0002_inferred_database_selection.md
+│   │   └── 0003_inferred_auth_strategy.md
+│   └── codebase-health.md
+├── todo.md
+├── AGENTS.md
+└── .hatch3r-session.json
+```
+
+## 3. Understanding the Analysis Results
+
+### Module Map
+
+The Module & Dependency Analyzer identifies:
+
+- **Modules**: Logical packages/components in your codebase
+- **Dependency graph**: How modules import and depend on each other
+- **Entry points**: Main files that bootstrap your application
+- **Shared utilities**: Code used across multiple modules
+- **Concerns**: Circular dependencies, orphaned files
+
+### Technical Debt Register
+
+The Concerns & Debt Analyzer categorizes findings:
+
+- **Critical** (address immediately): Security concerns, data loss risks
+- **High** (address soon): Performance bottlenecks, missing error handling
+- **Medium** (plan for): Code quality issues, missing tests
+- **Low** (nice to have): TODO comments, minor refactoring opportunities
+
+### Business Domain Map
+
+The Business Domain Analyzer reverse-engineers:
+
+- **Domain entities**: User, Order, Product, etc. with relationships
+- **Business rules**: Validation logic, state machines, pricing rules
+- **Revenue flow**: Payment processing, billing, subscription management
+- **User journeys**: Authentication, onboarding, core value delivery
+- **Business metrics**: Analytics events, KPI computation
+
+### Production Readiness Scorecard
+
+Graded A-F relative to your company stage:
+
+- **A**: Exceeds expectations for stage
+- **B**: Meets expectations for stage
+- **C**: Minor gaps, improvements recommended
+- **D**: Significant gaps, action required
+- **F**: Critical gaps, blocks production readiness
+
+<Note>
+  A seed-stage startup with manual deployment and basic logging might score a B, while the same setup for a Series B company would score an F. Grades are always relative to what's appropriate for your stage.
+</Note>
+
+## 4. Plan Improvements
+
+After analysis, run `roadmap` to create an improvement plan:
+
+<Steps>
+  <Step title="Run roadmap command">
+    Execute `roadmap` in your coding tool
+  </Step>
+  
+  <Step title="Review improvement phases">
+    roadmap organizes improvements into phases:
+    - **Phase 1: Critical** — Security, data loss, production blockers
+    - **Phase 2: High Priority** — Performance, reliability, missing features
+    - **Phase 3: Quality** — Test coverage, refactoring, documentation
+    - **Phase 4: Polish** — Nice-to-haves, UX improvements
+  </Step>
+  
+  <Step title="Identify dependencies">
+    roadmap determines implementation order:
+    - Foundational improvements first
+    - Features that unblock other work
+    - Parallel work lanes where possible
+  </Step>
+  
+  <Step title="Update todo.md">
+    roadmap updates `todo.md` with phased, dependency-ordered improvement items
+  </Step>
+</Steps>
+
+## 5. Fill the Board and Implement
+
+Follow the same workflow as greenfield projects:
+
+<Steps>
+  <Step title="Run board-init">
+    Set up your GitHub Projects V2 board (if not already done)
+  </Step>
+  
+  <Step title="Run board-fill">
+    Create GitHub issues from `todo.md` with dependency analysis
+  </Step>
+  
+  <Step title="Run board-pickup">
+    Auto-select and implement the next best issue
+  </Step>
+  
+  <Step title="Review and merge">
+    Automated review agents provide feedback on PRs
+  </Step>
+  
+  <Step title="Repeat">
+    Continue picking up issues until all improvements are complete
+  </Step>
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start with security and data loss risks">
+    Address critical findings first. These are typically flagged as P0 in the generated `todo.md`.
+  </Accordion>
+  
+  <Accordion title="Validate inferred ADRs">
+    Review each "Inferred" ADR and change status to "Accepted" if accurate, or update with correct context.
+  </Accordion>
+  
+  <Accordion title="Supplement existing docs">
+    If you have existing `docs/specs/` or `docs/adr/`, choose "Supplement" to keep them and add new files alongside.
+  </Accordion>
+  
+  <Accordion title="Use the health report for stakeholder updates">
+    The `docs/codebase-health.md` provides a concise summary for engineering managers and stakeholders.
+  </Accordion>
+  
+  <Accordion title="Calibrate to your stage">
+    Don't over-engineer. If you're pre-revenue, focus on shipping features. If you're at scale, invest in production hardening.
+  </Accordion>
+  
+  <Accordion title="Update specs as you learn">
+    Specs are "Inferred" initially. As you implement improvements, update specs to reflect reality.
+  </Accordion>
+</AccordionGroup>
+
+## Incremental Adoption
+
+You don't need to adopt hatch3r all at once:
+
+1. **Start with analysis**: Run `codebase-map` to understand your technical debt
+2. **Generate health report**: Use it for sprint planning and stakeholder updates
+3. **Pick a few issues**: Use `board-fill` to create issues for 2-3 high-priority items
+4. **Try board-pickup**: Test the workflow on one or two issues
+5. **Expand gradually**: Add more issues as you gain confidence
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow Guide" icon="diagram-project" href="/guides/workflow">
+    Full project lifecycle from init to release
+  </Card>
+  
+  <Card title="Board Fill" icon="clipboard-list" href="/guides/workflow#4-fill-the-board">
+    Learn how board-fill creates issues with dependency analysis
+  </Card>
+  
+  <Card title="Documentation Structure" icon="folder-tree" href="/guides/documentation-structure">
+    Understanding docs/specs/ and docs/adr/
+  </Card>
+  
+  <Card title="Troubleshooting" icon="screwdriver-wrench" href="/guides/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

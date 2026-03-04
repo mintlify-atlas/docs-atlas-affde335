@@ -1,0 +1,284 @@
+---
+title: Agents
+description: Specialized AI agents for code review, testing, security, implementation, and research
+---
+
+Agents are specialized AI personas that handle specific aspects of software development. hatch3r includes 15 agents, each with a focused role and explicit delegation protocol.
+
+## Agent Architecture
+
+Each agent is defined in `/.agents/agents/` as a markdown file with frontmatter:
+
+```yaml
+---
+id: hatch3r-implementer
+description: Focused implementation agent for a single issue
+model: sonnet  # optional: override default model
+---
+```
+
+Agents follow the **sub-agentic delegation pattern**: parent orchestrators (like `board-pickup`) spawn focused sub-agents via the Task tool, await their results, and coordinate git/board operations.
+
+## The 15 Agents
+
+### Core Implementation Agents
+
+<AccordionGroup>
+  <Accordion title="hatch3r-implementer" icon="code">
+    **Role**: Focused implementation agent for a single issue
+    
+    **Receives**: Issue number, body, type, context, spec references, branch
+    
+    **Delivers**: Code changes, tests, structured result report
+    
+    **Does NOT handle**: Git operations, branches, commits, PRs, board updates
+    
+    **Protocol**:
+    1. Read issue and specs
+    2. Load issue-type skill (bug-fix, feature, refactor, qa-validation)
+    3. Implement following skill's workflow
+    4. Write tests (unit, integration, regression)
+    5. Verify quality (lint, typecheck, test)
+    6. Browser verification for UI changes
+    7. Return structured result
+    
+    **Spawned by**: `board-pickup`, `issue-workflow`, plain chat (via agent-orchestration rule)
+  </Accordion>
+  
+  <Accordion title="hatch3r-researcher" icon="magnifying-glass">
+    **Role**: Composable context researcher with 12 research modes
+    
+    **Receives**: Research brief, mode selection, depth level, project context
+    
+    **Delivers**: Structured findings matching requested modes
+    
+    **Research Modes**:
+    - **Bug investigation**: `symptom-trace`, `root-cause`, `impact-analysis`, `regression`
+    - **Feature planning**: `codebase-impact`, `feature-design`, `architecture`, `risk-assessment`
+    - **Refactoring**: `current-state`, `refactoring-strategy`, `migration-path`
+    - **Knowledge augmentation**: `library-docs` (Context7), `prior-art` (web search)
+    
+    **Depth Levels**:
+    - `quick`: Scan headers, grep patterns, ~2k tokens per mode
+    - `standard`: Read files, structured tables, ~5k tokens per mode
+    - `deep`: Full analysis, no row limits, ~15k tokens per mode
+    
+    **Spawned by**: `board-pickup`, planning commands (`feature-plan`, `bug-plan`, `refactor-plan`)
+  </Accordion>
+</AccordionGroup>
+
+### Quality & Review Agents
+
+<AccordionGroup>
+  <Accordion title="hatch3r-reviewer" icon="eye">
+    **Role**: Senior code reviewer for correctness, security, performance
+    
+    **Checks**: Logic correctness, security patterns, performance regressions, accessibility, privacy invariants
+    
+    **Output**: Structured feedback by priority (critical, warning, suggestion)
+    
+    **Always spawned**: After every implementation, before PR creation
+  </Accordion>
+  
+  <Accordion title="hatch3r-test-writer" icon="flask">
+    **Role**: QA engineer for deterministic, isolated tests
+    
+    **Writes**: Unit tests, integration tests, E2E tests, security rules tests, contract tests
+    
+    **Focus**: Edge cases, regression coverage, test isolation, no network in unit tests
+    
+    **Always spawned**: After every code change
+  </Accordion>
+  
+  <Accordion title="hatch3r-security-auditor" icon="shield">
+    **Role**: Security analyst for data flows, rules, and entitlements
+    
+    **Audits**: Database rules, cloud functions, auth enforcement, privacy invariants, secret management, input validation
+    
+    **Domains**: Authentication, authorization, data protection, access control, API security, error handling
+    
+    **Always spawned**: After every code change
+  </Accordion>
+  
+  <Accordion title="hatch3r-a11y-auditor" icon="universal-access">
+    **Role**: Accessibility specialist for WCAG AA compliance
+    
+    **Checks**: Keyboard navigation, color contrast, ARIA attributes, reduced motion support, semantic HTML
+    
+    **Spawned when**: UI changes are made or `area:a11y` label present
+  </Accordion>
+  
+  <Accordion title="hatch3r-perf-profiler" icon="gauge">
+    **Role**: Performance engineer for runtime and bundle optimization
+    
+    **Profiles**: Runtime performance, bundle size, memory leaks, Core Web Vitals
+    
+    **Benchmarks**: Against performance budgets defined in project specs
+    
+    **Spawned when**: Performance-sensitive changes or `area:performance` label
+  </Accordion>
+</AccordionGroup>
+
+### Specialized Agents
+
+<AccordionGroup>
+  <Accordion title="hatch3r-docs-writer" icon="file-lines">
+    **Role**: Technical writer for specs, ADRs, process docs
+    
+    **Maintains**: `docs/specs/`, `docs/adr/`, `docs/process/` in sync with code
+    
+    **Updates**: When APIs change, architectural decisions made, user-facing behavior modified
+    
+    **Always evaluated**: After implementation (spawn when applicable)
+  </Accordion>
+  
+  <Accordion title="hatch3r-lint-fixer" icon="broom">
+    **Role**: Code quality enforcer for style violations
+    
+    **Fixes**: ESLint, Prettier, TypeScript strict mode violations without changing logic
+    
+    **Cleanup**: Dead code, unused imports
+    
+    **Spawned when**: Lint errors present after implementation
+  </Accordion>
+  
+  <Accordion title="hatch3r-dependency-auditor" icon="lock">
+    **Role**: Supply chain security analyst
+    
+    **Scans**: CVEs, outdated packages, lockfile integrity, bundle size impact
+    
+    **Evaluates**: Upgrade paths, breaking changes, security advisories
+    
+    **Spawned when**: Dependencies change or `dep-audit` command invoked
+  </Accordion>
+  
+  <Accordion title="hatch3r-ci-watcher" icon="circle-check">
+    **Role**: CI/CD specialist for failure diagnosis
+    
+    **Monitors**: GitHub Actions runs, test failures, build errors
+    
+    **Suggests**: Focused fixes with local verification commands
+    
+    **Spawned when**: CI fails during or after implementation
+  </Accordion>
+</AccordionGroup>
+
+### Planning & Architecture Agents
+
+<AccordionGroup>
+  <Accordion title="hatch3r-architect" icon="compass-drafting">
+    **Role**: Architecture design and ADR creation
+    
+    **Designs**: Data models, API contracts, component architecture
+    
+    **Produces**: ADRs with context, decision, alternatives, consequences
+    
+    **Spawned by**: `architecture-review` skill, `feature-plan` command
+  </Accordion>
+  
+  <Accordion title="hatch3r-devops" icon="server">
+    **Role**: CI/CD, infrastructure, deployment specialist
+    
+    **Handles**: Pipeline configuration, deployment automation, infrastructure as code
+    
+    **Spawned by**: `ci-pipeline` skill, infrastructure changes
+  </Accordion>
+  
+  <Accordion title="hatch3r-learnings-loader" icon="book">
+    **Role**: Project learnings retrieval and application
+    
+    **Loads**: Learnings from `/.agents/learnings/` matching current work area
+    
+    **Applies**: Pitfalls, patterns, decisions from past work to current context
+    
+    **Invoked by**: `learning-consult` rule before implementation
+  </Accordion>
+</AccordionGroup>
+
+### Shared Context
+
+<Accordion title="hatch3r-context-rules" icon="book-open">
+  **Role**: Shared context and conventions across all agents
+  
+  **Provides**: Project-wide rules, tooling hierarchy, delegation patterns
+  
+  **Loaded by**: All agents as baseline context
+</Accordion>
+
+## Agent Orchestration
+
+The `hatch3r-agent-orchestration` rule (scope: always) mandates the sub-agent pipeline:
+
+**Phase 1 — Research**: Spawn `hatch3r-researcher` for context gathering (skip only for trivial single-line edits)
+
+**Phase 2 — Implement**: Spawn `hatch3r-implementer` for ALL code changes (one dedicated implementer per task)
+
+**Phase 3 — Quality**: Spawn specialists in parallel:
+- **Always**: `hatch3r-reviewer`, `hatch3r-test-writer`, `hatch3r-security-auditor`
+- **Evaluate**: `hatch3r-docs-writer` (spawn when APIs/architecture/behavior changes)
+- **Conditional**: `hatch3r-lint-fixer`, `hatch3r-a11y-auditor`, `hatch3r-perf-profiler`
+
+This three-phase pipeline applies to every context: board-pickup, workflow command, plain chat, issue references, and natural language requests.
+
+## Model Configuration
+
+Set preferred models per agent in `hatch.json`:
+
+```json
+{
+  "models": {
+    "default": "opus",
+    "agents": {
+      "hatch3r-lint-fixer": "sonnet",
+      "hatch3r-implementer": "sonnet",
+      "hatch3r-security-auditor": "opus",
+      "hatch3r-reviewer": "opus"
+    }
+  }
+}
+```
+
+Or use per-agent customization files in `.hatch3r/agents/{id}.customize.yaml`.
+
+## Subagent Spawning Protocol
+
+When spawning any subagent via the Task tool:
+
+1. Use `subagent_type: "generalPurpose"` for all hatch3r agent delegations
+2. Include in every subagent prompt:
+   - The agent protocol to follow (e.g., "Follow the hatch3r-implementer agent protocol")
+   - All `scope: always` rules from `/.agents/rules/`
+   - The project's tooling hierarchy (Context7 MCP for library docs, web research for current context)
+   - Relevant learnings from `/.agents/learnings/` if the directory exists
+3. Launch as many independent subagents in parallel as the platform supports
+4. Await and review results before proceeding
+
+## Agent Customization
+
+Override agent behavior per project using `.hatch3r/agents/{id}.customize.yaml`:
+
+```yaml
+model: opus
+additionalInstructions: |
+  For this project, always check the legacy adapter layer
+  in src/adapters/legacy/ before modifying core modules.
+```
+
+See the `agent-customize` command for interactive configuration.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Skills" icon="wand-magic-sparkles" href="/concepts/skills">
+    Learn how skills compose agents into workflows
+  </Card>
+  <Card title="Sub-Agentic Architecture" icon="sitemap" href="/concepts/sub-agentic-architecture">
+    Understand parallel delegation and dependency-aware orchestration
+  </Card>
+  <Card title="Commands" icon="terminal" href="/concepts/commands">
+    Explore commands that spawn and coordinate agents
+  </Card>
+  <Card title="Customization" icon="sliders" href="/customize/agents">
+    Configure per-agent behavior for your project
+  </Card>
+</CardGroup>

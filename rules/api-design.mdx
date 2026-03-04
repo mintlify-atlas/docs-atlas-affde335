@@ -1,0 +1,575 @@
+---
+title: API Design
+description: REST, GraphQL, and gRPC patterns with OpenAPI 3.1, authentication, pagination, and security headers
+---
+
+# API Design
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-api-design`
+
+Defines API design patterns for REST, GraphQL, and gRPC including authentication, pagination, rate limiting, and contract documentation standards.
+
+## REST API Patterns
+
+### Request/Response Schemas
+
+- Use consistent request/response schemas across all endpoints
+- Document in OpenAPI spec files (see [OpenAPI 3.1](#openapi-31))
+- Version all endpoints via URL prefix (`/api/v1/`) or `Accept-Version` header
+- Only additive changes allowed: add fields, never rename or remove without migration
+
+### Error Response Format
+
+```typescript
+interface ErrorResponse {
+  code: string;           // Machine-readable error code
+  message: string;        // Human-readable message
+  details?: unknown;      // Optional additional context
+}
+
+// Example
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Invalid email format",
+  "details": {
+    "fields": ["email"]
+  }
+}
+```
+
+### Idempotency
+
+- Mutation endpoints (POST, PUT, PATCH, DELETE) accept `Idempotency-Key` header
+- Server tracks keys and rejects duplicate requests with 409 Conflict
+- Keys expire after 24 hours
+
+```typescript
+app.post('/api/v1/orders', async (req, res) => {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (!idempotencyKey) {
+    return res.status(400).json({ code: 'MISSING_IDEMPOTENCY_KEY' });
+  }
+
+  const existing = await checkIdempotencyKey(idempotencyKey);
+  if (existing) {
+    return res.status(409).json({ code: 'DUPLICATE_REQUEST' });
+  }
+
+  // Process request and store idempotency key
+});
+```
+
+### Request Validation
+
+- Validate and sanitize at the boundary before processing
+- Use runtime schema validators (zod, valibot, joi)
+- Return 400 with field-level error details on validation failure
+
+```typescript
+import { z } from 'zod';
+
+const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  age: z.number().int().min(0).max(120).optional(),
+});
+
+app.post('/api/v1/users', async (req, res) => {
+  const result = createUserSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid request body',
+      details: result.error.format(),
+    });
+  }
+
+  const user = await createUser(result.data);
+  res.status(201).json(user);
+});
+```
+
+### List Endpoints
+
+List endpoints return envelopes, never raw arrays:
+
+```typescript
+// ✅ Envelope format
+{
+  "data": [...],
+  "pagination": {
+    "nextCursor": "cursor_abc123",
+    "hasMore": true,
+    "pageSize": 50
+  }
+}
+
+// ❌ Never return raw arrays
+[...]
+```
+
+### Rate Limiting
+
+- Enforce server-side rate limits per authenticated identity or IP
+- Return 429 Too Many Requests with `Retry-After` header when exceeded
+- Use standard rate limit headers (see [Rate Limit Headers](#rate-limit-headers))
+
+## Authentication & Authorization
+
+### JWT Validation
+
+Validate JWT on every request:
+
+```typescript
+// Required validations
+- Signature (RS256 or HS256, never alg: none)
+- Expiration (exp claim)
+- Audience (aud claim)
+- Issuer (iss claim)
+
+// Example middleware
+const validateJWT = (req, res, next) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  try {
+    const payload = jwt.verify(token, publicKey, {
+      algorithms: ['RS256'],  // Pin allowed algorithm
+      audience: 'https://api.example.com',
+      issuer: 'https://auth.example.com',
+    });
+    req.user = payload;
+    next();
+  } catch (error) {
+    res.status(401).json({ code: 'INVALID_TOKEN' });
+  }
+};
+```
+
+### Token Lifetimes
+
+| Token Type | Lifetime | Storage |
+|------------|----------|----------|
+| Access token | 15–60 minutes | Memory, short-lived |
+| Refresh token | 7–30 days | Opaque, rotated, revocable |
+| API key | Until rotated | Server-side encrypted |
+
+### OAuth 2.0
+
+- Use Authorization Code flow with PKCE for SPAs and mobile clients
+- Never use implicit flow (deprecated in OAuth 2.1)
+- API keys identify applications, not users — scope keys to specific services
+
+### Authorization Middleware
+
+```typescript
+const requireRole = (role: string) => (req, res, next) => {
+  if (!req.user || req.user.role !== role) {
+    return res.status(403).json({ code: 'FORBIDDEN' });
+  }
+  next();
+};
+
+// Usage
+app.delete('/api/v1/users/:id', requireRole('admin'), deleteUser);
+```
+
+### Fail Closed
+
+- Default deny for authorization
+- Fail closed on missing claims or expired tokens
+- Never bypass auth checks on error
+
+### Token Storage
+
+- Prefer `HttpOnly`, `Secure`, `SameSite=Strict` cookies
+- Avoid `localStorage` for tokens (XSS vulnerable)
+- Mobile apps: use platform-specific secure storage (Keychain, Keystore)
+
+## CORS Policy
+
+```typescript
+app.use(cors({
+  origin: ['https://app.example.com'], // ✅ Explicit allowlist
+  credentials: true,                     // Only for cookie-based auth
+  maxAge: 7200,                          // Cache preflight 2 hours
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+```
+
+**Rules:**
+- Never use `Access-Control-Allow-Origin: *` in production
+- Set `credentials: true` only for origins that require cookie-based auth
+- Restrict methods and headers to what endpoints actually support
+- Reject requests from non-allowlisted origins at the gateway
+
+## Security Headers
+
+Apply via centralized middleware:
+
+```typescript
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'nonce-{random}'");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+```
+
+## Pagination Standards
+
+### Cursor-Based Pagination (Recommended)
+
+```typescript
+// Request
+GET /api/v1/posts?cursor=cursor_abc123&limit=50
+
+// Response
+{
+  "data": [...],
+  "pagination": {
+    "nextCursor": "cursor_xyz789",  // null if no more pages
+    "hasMore": true,
+    "pageSize": 50
+  }
+}
+```
+
+**When to use:**
+- Ordered data with high write frequency
+- Deep traversal (> 1000 records)
+- Real-time feeds
+
+**Rules:**
+- Cursors are opaque — clients must not construct them
+- Enforce max page size server-side (e.g., 100 items)
+- Return `nextCursor: null` when no more pages
+
+### Offset-Based Pagination
+
+```typescript
+// Request
+GET /api/v1/users?offset=100&limit=50
+
+// Response
+{
+  "data": [...],
+  "pagination": {
+    "offset": 100,
+    "limit": 50,
+    "total": 1543,  // Optional: expensive for large datasets
+    "hasMore": true
+  }
+}
+```
+
+**When to use:**
+- Small, stable datasets
+- Total count is cheap to compute
+- Page number navigation required
+
+**Rules:**
+- Reject deep offset pagination beyond threshold (e.g., offset > 10,000)
+- Total count is optional — use `hasMore` boolean if count is expensive
+
+## Rate Limit Headers
+
+Follow IETF draft standard:
+
+```typescript
+res.setHeader('RateLimit-Limit', '100');         // Max requests in window
+res.setHeader('RateLimit-Remaining', '42');      // Remaining requests
+res.setHeader('RateLimit-Reset', '30');          // Seconds until reset
+
+// On 429 response
+res.setHeader('Retry-After', '30');              // Seconds to wait
+```
+
+**Return on every response** (not just 429) so clients can implement proactive throttling.
+
+### Rate Limit Tiers
+
+| Endpoint Type | Rate Limit |
+|---------------|------------|
+| Auth endpoints | 100/min per IP |
+| Read endpoints | 1000/min per user |
+| Write endpoints | 500/min per user |
+| Search endpoints | 100/min per user |
+
+## OpenAPI 3.1
+
+Use OpenAPI 3.1 for all REST API documentation.
+
+### Key Features
+
+- Full JSON Schema alignment (draft 2020-12)
+- Use `type: ["string", "null"]` instead of `nullable: true`
+- Webhooks as top-level objects
+- `$id` and `$anchor` for schema references
+
+### Example Spec
+
+```yaml
+openapi: 3.1.0
+info:
+  title: Example API
+  version: 1.0.0
+paths:
+  /users:
+    post:
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required: [email, name]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+```
+
+### CI Integration
+
+```yaml
+# Validate OpenAPI specs in CI
+- name: Lint OpenAPI
+  run: npx @redocly/cli lint openapi.yaml
+```
+
+### Type Generation
+
+```bash
+# Generate TypeScript types from OpenAPI
+npx openapi-typescript openapi.yaml -o src/types/api.ts
+```
+
+## GraphQL API Design
+
+### Schema-First
+
+Define schema (SDL) before implementing resolvers:
+
+```graphql
+type User {
+  id: ID!
+  email: String!
+  name: String!
+  posts(first: Int, after: String): PostConnection!
+}
+
+type PostConnection {
+  edges: [PostEdge!]!
+  pageInfo: PageInfo!
+}
+
+type PostEdge {
+  node: Post!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+```
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|----------|
+| Types | `PascalCase` | `User`, `PostConnection` |
+| Fields | `camelCase` | `firstName`, `createdAt` |
+| Arguments | `camelCase` | `first`, `after` |
+| Enum values | `SCREAMING_SNAKE_CASE` | `PUBLISHED`, `DRAFT` |
+
+### Pagination
+
+Implement Relay Connection specification:
+
+```graphql
+type Query {
+  posts(
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): PostConnection!
+}
+```
+
+### Error Handling
+
+```typescript
+// Field-level errors via union types
+type CreateUserResult = User | ValidationError | ConflictError
+
+type ValidationError {
+  message: String!
+  fields: [String!]!
+}
+
+// Operation-level errors via errors array
+{
+  "errors": [
+    {
+      "message": "Unauthorized",
+      "extensions": {
+        "code": "UNAUTHENTICATED"
+      }
+    }
+  ]
+}
+```
+
+### N+1 Prevention
+
+Use DataLoader for batching:
+
+```typescript
+import DataLoader from 'dataloader';
+
+const userLoader = new DataLoader(async (userIds) => {
+  const users = await db.users.findMany({ where: { id: { in: userIds } } });
+  return userIds.map(id => users.find(user => user.id === id));
+});
+
+// One DataLoader instance per request
+const context = { userLoader: new DataLoader(...) };
+```
+
+### Security
+
+- Enforce query depth limits (max 10)
+- Enforce query complexity limits
+- Disable introspection in production
+- Apply field-level authorization in every resolver
+
+## gRPC API Design
+
+### Protobuf Schema
+
+```protobuf
+syntax = "proto3";
+
+package example.v1;
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (stream User);
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+```
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|----------|
+| Services | `PascalCase` | `UserService` |
+| RPCs | `PascalCase` | `GetUser`, `ListUsers` |
+| Messages | `PascalCase` | `GetUserRequest` |
+| Fields | `snake_case` | `user_id`, `created_at` |
+| Enums | `SCREAMING_SNAKE_CASE` | `STATUS_UNSPECIFIED`, `STATUS_ACTIVE` |
+
+### Backward Compatibility
+
+- Never reuse field numbers — use `reserved` for removed fields
+- Only add fields (never remove or rename)
+- Use `optional` for new fields that older clients may not send
+
+```protobuf
+message User {
+  reserved 5;  // Previously: deprecated_field
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  optional string phone = 6;  // New field
+}
+```
+
+### Error Codes
+
+Use standard gRPC status codes:
+
+| Code | When to Use |
+|------|-------------|
+| `OK` | Success |
+| `INVALID_ARGUMENT` | Client sent bad input |
+| `NOT_FOUND` | Resource does not exist |
+| `ALREADY_EXISTS` | Create conflict |
+| `PERMISSION_DENIED` | Authenticated but not authorized |
+| `UNAUTHENTICATED` | Missing or invalid credentials |
+| `RESOURCE_EXHAUSTED` | Rate limit exceeded |
+| `INTERNAL` | Unexpected server error |
+| `UNAVAILABLE` | Transient failure, retry |
+
+## Enforcement
+
+**CI gates:**
+- OpenAPI spec validation (blocks merge on lint errors)
+- Generated types up-to-date
+- Security headers present in responses
+
+**Code review checklist:**
+- [ ] API versioned (URL or header)
+- [ ] Request validation at boundary
+- [ ] Error responses use standard format
+- [ ] Pagination uses envelope format
+- [ ] Rate limiting enforced
+- [ ] Security headers applied
+
+## Related Rules
+
+- [Security Patterns](/rules/security-patterns) — Input validation, auth enforcement
+- [Error Handling](/rules/error-handling) — Error response structure
+- [Observability](/rules/observability) — API tracing and metrics

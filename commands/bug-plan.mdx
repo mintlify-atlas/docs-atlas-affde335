@@ -1,0 +1,229 @@
+---
+title: Bug Plan
+description: Plan complex bug investigation using parallel researchers to produce diagnosis report and fix phases
+---
+
+Take a complex or ambiguous bug report and produce structured investigation report with ranked hypotheses, impact assessment, and phased fix plan.
+
+## Purpose
+
+Transform a bug symptom into actionable fix plan:
+- Investigation report with ranked root cause hypotheses
+- Impact assessment (blast radius, data integrity risk)
+- Regression analysis (when bug was introduced)
+- Phased fix approach with safeguards
+- Board-ready fix items for GitHub issues
+
+## When to Use
+
+- **Use `bug-plan` when**: Root cause is unknown, multiple modules might be involved, reproducing is non-trivial, bug has been lingering, or fix may require phased work across multiple PRs
+- **Use `hatch3r-bug-fix` skill directly when**: Root cause is clear, fix is localized, reproduction steps exist
+
+## When NOT to Use
+
+Skip this command for:
+- Simple bugs with known root cause (use `hatch3r-bug-fix` skill directly)
+- Typos or obvious one-line fixes
+- Bugs already diagnosed (just need implementation)
+
+## What It Generates
+
+- **Investigation Report** (`docs/investigations/{NN}_{bug-slug}.md`) - Symptom trace, ranked hypotheses, impact assessment, reproduction strategy, fix phases
+- **ADRs** (`docs/adr/{NNNN}_{decision}.md`) - Only if fix requires significant architectural changes (rare)
+- **todo.md entries** - Epic + fix phases in board-fill format
+
+## Sub-Agent Architecture
+
+Spawns 4 parallel researcher sub-agents using the Task tool:
+
+<Steps>
+  <Step title="Symptom Trace Researcher">
+    Traces execution path from user action to failure, identifies divergence point using the `symptom-trace` researcher mode.
+  </Step>
+  
+  <Step title="Root Cause Investigator">
+    Ranks hypotheses by likelihood, identifies code smells, analyzes dependencies using the `root-cause` researcher mode.
+  </Step>
+  
+  <Step title="Impact Assessor">
+    Maps blast radius, affected flows/modules, data integrity risk, related symptoms using the `impact-analysis` researcher mode.
+  </Step>
+  
+  <Step title="Regression Researcher">
+    Analyzes git history, dependency changes, identifies introduction window using the `regression` researcher mode.
+  </Step>
+</Steps>
+
+## Workflow
+
+<Steps>
+  <Step title="Gather Bug Report">
+    Collects bug title, symptoms, expected behavior, reproduction context, severity, and prior debugging attempts. Can extract from GitHub issue or error log.
+  </Step>
+  
+  <Step title="Load Project Context">
+    Reads specs, ADRs, prior investigations, todo.md, related GitHub issues, and relevant learnings from `/.agents/learnings/`.
+  </Step>
+  
+  <Step title="Spawn Parallel Researchers">
+    Launches all 4 researchers concurrently with bug brief and project context. Each follows hatch3r-researcher agent protocol.
+  </Step>
+  
+  <Step title="Synthesize & Review Research">
+    Presents merged summary with top hypothesis, confidence, affected flows, data risk, likely introduction window, and fix complexity. Highlights conflicts.
+  </Step>
+  
+  <Step title="Generate Investigation Report">
+    Creates investigation report with symptom trace, ranked hypotheses, impact assessment, regression analysis, reproduction strategy, and phased fix approach.
+  </Step>
+  
+  <Step title="Generate ADRs (Rare)">
+    Only creates ADRs if fix requires systemic architectural changes (e.g., replacing an error-prone pattern across codebase).
+  </Step>
+  
+  <Step title="Generate todo.md Entries">
+    Produces investigation epic with fix phase items (multi-phase) or single fix item (simple bugs). Priority based on severity.
+  </Step>
+  
+  <Step title="Write Files">
+    After user confirmation, writes investigation report, ADRs (if any), and updates todo.md.
+  </Step>
+</Steps>
+
+## Investigation Report Structure
+
+```markdown
+# Investigation: Bug Title
+
+## Status
+Open
+
+## Bug Brief
+| Field | Value |
+| Title | ... |
+| Severity | Critical/High/Med/Low |
+| Symptoms | ... |
+| Expected behavior | ... |
+| Reproduction | ... |
+| Likely introduced | ... |
+
+## Executive Summary
+2-3 sentences: findings, top hypothesis, recommended fix
+
+## Symptom Trace
+Execution path, divergence point, error propagation
+
+## Root Cause Analysis
+### Hypotheses
+| Rank | Hypothesis | Likelihood | Evidence | Verification |
+
+### Recommended Investigation Order
+What to verify first
+
+## Impact Assessment
+### Blast Radius
+| Area | Impact | Severity |
+
+### Data Integrity Risk
+Risk assessment and recovery strategies
+
+## Regression Analysis
+### Most Likely Introduction Window
+When, what changed, confidence level
+
+## Reproduction Strategy
+Step-by-step approach to reproduce
+
+## Recommended Fix Approach
+### Fix Phases
+| Phase | What to Fix | Files | Hypothesis Addressed | Risk |
+
+### Safeguards
+- Regression test to add
+- Monitoring to add
+- Defensive patterns to apply
+```
+
+## Examples
+
+### Payment Webhook Failure
+```markdown
+Bug: Stripe webhook intermittently fails with 500 error
+Symptoms: 5% of webhooks fail, subscriptions not activated
+Severity: Critical (revenue impact)
+
+Researchers find:
+- Top hypothesis: Race condition in subscription update (High confidence)
+- Affected: 3 flows (signup, upgrade, cancellation)
+- Data risk: Yes — subscriptions in inconsistent state
+- Likely introduced: 2 weeks ago (Stripe SDK upgrade)
+- Fix complexity: M (2 days)
+
+Generates:
+- Investigation report with transaction isolation fix
+- todo.md: P0 epic with 2 phases (immediate fix + monitoring)
+```
+
+### Search Results Ordering Bug
+```markdown
+Bug: Search results sometimes show irrelevant items first
+Symptoms: Users report seeing old/irrelevant content at top
+Severity: Medium (user experience)
+
+Researchers find:
+- Top hypothesis: Scoring algorithm doesn't account for recency (Medium confidence)
+- Alternative: Index staleness (Low confidence)
+- Affected: 1 flow (search)
+- Data risk: No
+- Likely introduced: Original implementation (3 months ago)
+- Fix complexity: S (1 day)
+
+Generates:
+- Investigation report with scoring algorithm improvement
+- todo.md: P2 single fix item (verify hypothesis, update scoring, add test)
+```
+
+## Hypothesis Ranking
+
+Root cause investigator ranks hypotheses by:
+- **Evidence strength**: Direct code evidence vs circumstantial
+- **Pattern match**: Known pitfalls vs novel issues
+- **Timing**: Correlation with introduction window
+- **Scope**: Localized vs cross-cutting
+
+Ranked as:
+- **High likelihood**: Strong evidence, clear pattern match, tight timing correlation
+- **Medium likelihood**: Circumstantial evidence, possible pattern match
+- **Low likelihood**: Speculative, weak evidence, poor timing fit
+
+## Severity to Priority Mapping
+
+- **Critical/High bugs** → P1
+- **Medium bugs** → P2
+- **Low bugs** → P3
+
+## When ADRs Are Generated
+
+ADRs created only if fix requires:
+- Replacing an error-prone pattern across codebase
+- Introducing new resilience mechanism
+- Changing data model to prevent recurrence
+- Architectural response to systemic issue
+
+Most bug investigations will NOT need ADRs.
+
+## Cross-Command Integration
+
+After completion:
+- **`board-fill`** - Create GitHub issues from todo.md entries (optional immediate chain)
+- **`hatch3r-bug-fix`** - Implement the fix following investigation guidance
+
+## Key Features
+
+- **Research-driven**: 4 parallel researchers analyze from multiple angles
+- **Hypothesis ranking**: Evidence-based likelihood assessment
+- **Blast radius mapping**: Identifies all affected areas
+- **Regression analysis**: Pinpoints when bug was introduced
+- **Phased fix approach**: Breaks complex fixes into safe phases
+- **Data integrity focus**: Assesses and mitigates data corruption risk
+- **Safeguard recommendations**: Regression tests, monitoring, defensive patterns

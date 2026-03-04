@@ -1,0 +1,129 @@
+---
+title: Visual Refactor
+description: UI/UX change workflow matching design, accessibility, and responsiveness requirements. Use when making visual changes, updating components, working on UI issues, or implementing design mockups.
+---
+
+## Overview
+
+The visual refactor skill guides agents through UI/UX changes with strict design system compliance, accessibility requirements, and browser verification.
+
+## Quick Start
+
+```
+Task Progress:
+- [ ] Step 1: Read the issue, mockups, and design system
+- [ ] Step 2: Produce a visual change plan
+- [ ] Step 3: Implement matching the mockup
+- [ ] Step 4: Verify accessibility and responsiveness
+- [ ] Step 5: Open PR with before/after screenshots
+```
+
+## Step 1: Read Inputs
+
+Parse the issue body for:
+
+- **Proposed changes** - What's changing visually
+- **Before/after mockups** - Visual reference (required)
+- **Affected surfaces** - Which pages/components
+- **Accessibility checklist** - WCAG requirements
+- **Responsiveness requirements** - Viewport sizes to support
+
+Read project documentation:
+
+- Quality docs for accessibility and animation budgets
+- Design system tokens and component hierarchy
+- Existing component patterns for consistency
+
+## Step 2: Visual Change Plan
+
+Before modifying code, output:
+
+- **Surfaces affected** - List with stable IDs
+- **Components to modify/create** - List (prefer modifying existing)
+- **Design tokens used** - Colors, spacing, typography
+- **Accessibility approach** - How WCAG AA compliance is achieved
+- **Responsiveness** - How it adapts across widget/panel sizes
+- **Animation changes** - New/modified animations, frame budget
+
+## Step 3: Implement
+
+Match the mockup/screenshot exactly:
+
+- Use existing design system tokens and components
+- Do not improvise design - follow mockup precisely
+- Ensure animations respect `prefers-reduced-motion`
+- Ensure color contrast meets WCAG AA (4.5:1 for text)
+- Ensure interactive elements are keyboard accessible with focus indicators
+- Add ARIA attributes for screen reader support
+
+### Design System Compliance
+
+- **Tokens** - Use design system tokens (no ad-hoc colors/spacing)
+- **Components** - Reuse existing components when possible
+- **Patterns** - Follow established interaction patterns
+- **Consistency** - Match existing UI conventions
+
+### Accessibility Requirements
+
+- **Color contrast** - WCAG AA minimum (4.5:1 for normal text, 3:1 for large text)
+- **Keyboard navigation** - All interactive elements focusable
+- **Focus indicators** - Visible focus rings (no `outline: none` without replacement)
+- **Reduced motion** - Animations respect `prefers-reduced-motion`
+- **Screen readers** - Appropriate ARIA labels and live regions
+
+## Step 4: Verify
+
+### 4a. Automated Checks
+
+- Snapshot tests updated for all modified components
+- Animations at 60fps (if applicable)
+
+```bash
+npm run lint && npm run typecheck && npm run test
+```
+
+### 4b. Browser Verification
+
+1. Ensure the dev server is running. If not, start it in the background.
+2. Navigate to every surface affected by the visual change.
+3. Compare the rendered result against the mockup or design from the issue.
+4. Test at multiple viewport sizes if the change affects responsive behavior.
+5. Tab through interactive elements to verify keyboard accessibility and visible focus indicators.
+6. Check color contrast on new or changed text and backgrounds.
+7. If animations were changed, verify they play at 60fps and respect `prefers-reduced-motion`.
+8. Check the browser console for errors or warnings.
+9. Capture before/after screenshots for the PR. If a "before" screenshot was not taken prior to implementation, note this in the PR.
+10. Verify no visual regressions on unaffected surfaces adjacent to the change.
+
+## Step 5: Open PR
+
+Use the project's PR template. Include:
+
+- Before/after screenshots (required)
+- Accessibility verification evidence
+- Responsive behavior across sizes
+
+### PR Evidence Requirements
+
+- **Screenshots** - Before/after for all affected surfaces
+- **Accessibility** - Color contrast ratios, keyboard navigation evidence
+- **Responsiveness** - Screenshots at different viewport sizes
+- **Animation** - GIF/video if animations changed
+
+## Related Skills
+
+- **[Accessibility Audit](/skills/a11y-audit)** - For comprehensive accessibility verification
+- **[Refactor](/skills/refactor)** - For structural changes without visual changes
+- **[Issue Workflow](/skills/issue-workflow)** - Parent workflow from issue to PR
+
+## Definition of Done
+
+- [ ] UI matches mockup/design in the issue
+- [ ] Color contrast >= 4.5:1 (WCAG AA)
+- [ ] Animations respect `prefers-reduced-motion`
+- [ ] Interactive elements keyboard accessible
+- [ ] ARIA attributes for screen readers
+- [ ] Responsive across applicable host sizes
+- [ ] Snapshot tests updated
+- [ ] No visual regressions
+- [ ] Design system tokens used (no ad-hoc styling)

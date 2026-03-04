@@ -1,0 +1,115 @@
+---
+title: Logical Refactor
+description: Workflow for changing behavior or logic flow without adding new features or overhauling UI. Use when modifying business logic, data flows, behavioral rules, or working on logical refactor issues.
+---
+
+## Overview
+
+The logical refactor skill guides agents through intentional behavior changes without adding new features. It emphasizes documenting preserved vs changed invariants.
+
+## Quick Start
+
+```
+Task Progress:
+- [ ] Step 1: Read the issue, specs, and existing tests
+- [ ] Step 2: Produce a change plan
+- [ ] Step 3: Implement the behavior change
+- [ ] Step 4: Update tests and verify invariants
+- [ ] Step 5: Open PR
+```
+
+## Step 1: Read Inputs
+
+Parse the issue body for:
+
+- **Motivation** - Why change this behavior?
+- **Before/after behavior** - Current vs desired behavior
+- **Invariants preserved** - What must stay the same
+- **Invariants changed** - What will change and why
+- **Acceptance criteria** - How to verify the change
+- **Affected files** - Scope of changes
+- **Risk analysis** - What could break
+- **Testing plan** - How to verify
+
+Read relevant project documentation:
+
+- Behavior engine for behavioral rules
+- Event model for event patterns
+- Data model for schema constraints
+- Privacy specs for data handling
+- Quality docs for testing requirements
+
+Review existing tests to understand what behavior is currently asserted.
+
+## Step 2: Change Plan
+
+Before modifying code, output:
+
+- **Current behavior** - How it works now
+- **New behavior** - How it will work after
+- **Invariants preserved** - List from issue + specs
+- **Invariants changed** - List with justification
+- **Cascading effects** - Which other flows/components are affected
+- **Files to modify** - List with what changes
+- **Risks** - What could go wrong
+
+## Step 3: Implement
+
+Implement behavior change as described in the before/after section:
+
+- Verify every listed invariant is maintained (or explicitly updated with justification)
+- Update any spec docs affected by the behavior change
+- Keep changes focused on the stated behavior change
+
+### Principles
+
+- **Intentional behavior change** - Document what's changing and why
+- **Invariant preservation** - Explicitly maintain stated invariants
+- **Cascading awareness** - Identify and handle downstream effects
+- **Spec alignment** - Update specs to match new behavior
+
+## Step 4: Test
+
+Update and add tests:
+
+- **Update existing tests** that assert old behavior to assert new behavior
+- **Add new tests** for the new behavior, especially edge cases
+- **Regression tests** for preserved invariants
+- **Integration tests** if change affects cross-module interactions
+
+```bash
+npm run lint && npm run typecheck && npm run test
+```
+
+### Test Strategy
+
+- Tests that asserted old behavior should now assert new behavior
+- Tests for preserved invariants should pass unchanged
+- New tests cover edge cases in the new behavior
+- Integration tests verify cascading changes work correctly
+
+## Step 5: Open PR
+
+Use the project's PR template. Include:
+
+- Before/after behavior with concrete examples
+- Invariants preserved and changed
+- Test evidence for both new behavior and preserved behavior
+- Spec docs updated (if any)
+
+## Related Skills
+
+- **[Refactor](/skills/refactor)** - Use for structural changes without behavior changes
+- **[Visual Refactor](/skills/visual-refactor)** - Use for UI/UX changes
+- **[Feature](/skills/feature)** - Use for new feature additions
+- **[Issue Workflow](/skills/issue-workflow)** - Parent workflow from issue to PR
+
+## Definition of Done
+
+- [ ] New behavior matches the "after" description
+- [ ] All preserved invariants verified with tests
+- [ ] Changed invariants documented and justified
+- [ ] Existing tests updated, new tests added
+- [ ] Performance budgets maintained
+- [ ] Privacy/security invariants respected
+- [ ] Spec docs updated if behavior diverges from spec

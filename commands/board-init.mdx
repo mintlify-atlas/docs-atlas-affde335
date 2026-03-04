@@ -1,0 +1,311 @@
+---
+title: board-init
+description: Initialize a GitHub Projects V2 board with hatch3r's label taxonomy, status fields, and board structure
+---
+
+## Overview
+
+Initialize a new or existing GitHub Projects V2 board for your repository. Sets up status fields, creates the full hatch3r label taxonomy, optionally migrates issues from another project, and writes all IDs back to `/.agents/hatch.json` so subsequent board commands work out of the box.
+
+## Purpose
+
+The `board-init` command bootstraps your GitHub Projects V2 board with:
+
+- **Status field configuration**: Backlog, Ready, In Progress, In Review, Done
+- **Label taxonomy**: Type, executor, status, priority, risk, and meta labels
+- **Area labels**: Custom area labels for your project (frontend, backend, infra, etc.)
+- **Board overview issue**: A living dashboard that tracks board health and implementation lanes
+- **Migration support**: Optionally import issues from an existing project
+
+## When to Use
+
+Run `board-init` when:
+
+- Starting a new project and need to set up the board structure
+- Adopting hatch3r's board management system on an existing repository
+- Migrating from another project management system to hatch3r
+- Resetting board configuration after major restructuring
+
+## Workflow
+
+<Steps>
+
+### Planning Phase
+
+Collect all configuration choices upfront. No GitHub API calls or file writes occur until you confirm the plan.
+
+1. **Read Configuration**
+   - Reads `/.agents/hatch.json` for owner/repo configuration
+   - Prompts for missing owner or repository information
+
+2. **Choose Mode**
+   - **Create new**: Creates a new GitHub Projects V2 board
+   - **Connect existing**: Links to an existing project by number
+
+3. **Configure Project Name** (new projects only)
+   - Default: `{repo} Board`
+   - Customize as needed
+
+4. **Set Default Branch**
+   - Default: `main`
+   - Used by `board-pickup` for checkout and PR base
+
+5. **Define Area Labels**
+   - Specify areas relevant to your project
+   - Examples: `frontend`, `backend`, `infra`, `api`, `docs`
+   - Skip if not needed
+
+6. **Configure Migration** (optional)
+   - Import issues from an existing GitHub project
+   - Provide the source project number
+   - Maps status fields and preserves metadata
+
+7. **Confirm Plan**
+   - Review the complete configuration
+   - Adjust any settings before execution begins
+
+### Execution Phase
+
+Execute all planned mutations in sequence. No further questions unless a mutation fails.
+
+1. **Create or Connect Project**
+   - Creates new project or connects to existing one
+   - Captures project ID and number
+
+2. **Configure Status Field**
+   - Creates "Status" single-select field if missing
+   - Ensures required options exist: Backlog, Ready, In Progress, In Review, Done
+   - Captures field ID and option IDs
+
+3. **Create Label Taxonomy**
+   - Creates standardized labels across categories
+   - Uses consistent color schemes per category
+   - Only creates missing labels (never modifies existing)
+
+4. **Migrate Issues** (if requested)
+   - Copies issues from source project
+   - Maps status fields between projects
+   - Preserves issue metadata and relationships
+
+5. **Write Configuration**
+   - Updates `/.agents/hatch.json` with all captured IDs
+   - Preserves existing configuration outside `board` section
+
+6. **Create Board Overview Issue**
+   - Creates `meta:board-overview` labeled issue
+   - Provides living dashboard of board state
+   - Auto-maintained by board commands
+
+</Steps>
+
+## Configuration in hatch.json
+
+The command writes the following structure to `/.agents/hatch.json`:
+
+```json
+{
+  "owner": "your-org",
+  "repo": "your-repo",
+  "board": {
+    "owner": "your-org",
+    "repo": "your-repo",
+    "defaultBranch": "main",
+    "projectNumber": 1,
+    "statusFieldId": "PVTF_...",
+    "statusOptions": {
+      "backlog": "option_id_1",
+      "ready": "option_id_2",
+      "inProgress": "option_id_3",
+      "inReview": "option_id_4",
+      "done": "option_id_5"
+    },
+    "areas": ["frontend", "backend", "infra"]
+  }
+}
+```
+
+## Label Taxonomy
+
+The command creates the following label categories:
+
+### Type Labels
+
+- `type:bug` - Bug reports and fixes
+- `type:feature` - New features and enhancements
+- `type:refactor` - Code, logical, or visual refactoring
+- `type:qa` - Quality assurance and validation
+- `type:docs` - Documentation updates
+- `type:infra` - Infrastructure and tooling
+
+### Executor Labels
+
+- `executor:agent` - Fully autonomous implementation
+- `executor:human` - Human-led implementation
+- `executor:hybrid` - Agent implements after human direction
+
+### Status Labels
+
+- `status:triage` - Needs classification and scoping
+- `status:ready` - Ready for implementation
+- `status:in-progress` - Currently being worked on
+- `status:in-review` - In code review
+- `status:blocked` - Externally blocked
+
+### Priority Labels
+
+- `priority:p0` - Critical/security issues
+- `priority:p1` - Broken functionality, no workaround
+- `priority:p2` - Degraded functionality (default)
+- `priority:p3` - Cosmetic, nice-to-have
+
+### Risk Labels
+
+- `risk:low` - Isolated, easy rollback
+- `risk:med` - Shared modules, moderate scope
+- `risk:high` - Architectural, security-critical
+
+### Meta Labels
+
+- `meta:board-overview` - Board dashboard issue
+- `has-dependencies` - Issue has dependency metadata
+
+## Examples
+
+### Create New Board with Areas
+
+```
+User: Run board-init
+
+Agent: I need the GitHub owner and repository for this board.
+Please provide: (1) owner (org or username), (2) repo name.
+
+User: owner: acme-corp, repo: platform
+
+Agent: How would you like to set up the Projects V2 board?
+- A — Create a new GitHub Projects V2 board
+- B — Connect to an existing project (provide the project number)
+
+User: A
+
+Agent: What should the GitHub Project be named? (default: platform Board)
+
+User: [Enter] (accept default)
+
+Agent: What is your repository's default branch? (default: main)
+
+User: main
+
+Agent: Would you like to create area labels? If yes, list area names.
+
+User: frontend, backend, api, infra
+
+Agent: Do you have an existing GitHub project to migrate issues from?
+
+User: no
+
+Agent: Here is the full board init plan:
+  Owner/Repo:     acme-corp/platform
+  Default branch: main
+  Mode:           Create new
+  Project name:   platform Board
+  Status options: Backlog, Ready, In Progress, In Review, Done
+  Label taxonomy: 27 labels (types, executors, statuses, priorities, risks, meta)
+  Area labels:    frontend, backend, api, infra
+  Migration:      none
+  Board overview: yes (default)
+
+Confirm to begin execution, or adjust any setting.
+
+User: confirm
+
+Agent: [Executes all mutations...]
+
+Board Init Complete:
+  Project: acme-corp/platform (Project #1)
+  Status field: configured (5 options)
+  Labels created: 27 new, 0 existing
+  Areas: frontend, backend, api, infra
+  Migration: skipped
+  Board overview: #1
+  Config: /.agents/hatch.json updated
+```
+
+### Connect to Existing Project and Migrate
+
+```
+User: Initialize board, connect to existing project #3, migrate from project #2
+
+Agent: [Reads config, finds owner/repo already set]
+
+Using owner=acme-corp, repo=platform.
+
+How would you like to set up the Projects V2 board?
+- A — Create a new GitHub Projects V2 board
+- B — Connect to an existing project (provide the project number)
+
+User: B, project 3
+
+Agent: What is your repository's default branch?
+
+User: develop
+
+Agent: Would you like to create area labels?
+
+User: no
+
+Agent: Do you have an existing GitHub project to migrate issues from?
+
+User: yes, project 2
+
+Agent: Here is the full board init plan:
+  Owner/Repo:     acme-corp/platform
+  Default branch: develop
+  Mode:           Connect to #3
+  Project name:   N/A
+  Status options: Backlog, Ready, In Progress, In Review, Done
+  Label taxonomy: 23 labels (types, executors, statuses, priorities, risks, meta)
+  Area labels:    none
+  Migration:      from Project #2
+  Board overview: yes (default)
+
+Confirm to begin execution.
+
+User: go
+
+Agent: [Executes...]
+
+Board Init Complete:
+  Project: acme-corp/platform (Project #3)
+  Status field: configured (5 options)
+  Labels created: 15 new, 8 existing
+  Areas: none
+  Migration: 42 issues migrated from Project #2
+  Board overview: #87
+  Config: /.agents/hatch.json updated
+```
+
+## Integration with GitHub Agentic Workflows
+
+hatch3r's board commands operate as the **implementation orchestration layer** above GitHub Agentic Workflows:
+
+- **board-init** sets up the project management structure that agentic workflows operate within
+- **board-fill** creates the work items that agentic workflows can triage and label
+- **board-pickup** orchestrates the implementation → review → merge pipeline
+
+Use agentic workflows for continuous background automation, use hatch3r board commands for structured delivery orchestration.
+
+## Error Handling
+
+- **GraphQL mutation failure**: Check GitHub PAT permissions (must include `project` scope)
+  - For gh CLI: run `gh auth refresh -s project`
+- **Label creation failure**: Reports failing labels, continues with remaining labels
+- **Migration failure**: Reports per-item, continues with remaining items
+- **Permission errors**: Surfaces scope requirements and provides resolution steps
+
+## Guardrails
+
+- Never modifies or deletes existing labels (only creates missing ones)
+- Never removes issues from existing projects (migration is additive only)
+- Collects all choices in Planning phase before any mutations
+- Requires `project` scope on GitHub token for Projects V2 operations
+- Preserves existing `/.agents/hatch.json` content outside the `board` key

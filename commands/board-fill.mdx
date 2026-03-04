@@ -1,0 +1,489 @@
+---
+title: board-fill
+description: Create GitHub epics and issues from todo.md with dependency analysis, readiness assessment, and implementation ordering
+---
+
+## Overview
+
+Create GitHub epics and standalone issues from items in `todo.md`, with full board reorganization: grouping standalone issues into epics, decomposing oversized items, analyzing dependencies, setting implementation order, and marking issues as `status:ready` when all readiness criteria are met.
+
+## Purpose
+
+The `board-fill` command transforms your todo list into a structured, dependency-aware project board:
+
+- **Interactive triage**: Extracts scope, intent, unknowns, and acceptance criteria from you
+- **Smart grouping**: Groups related items into epics, adopts orphans into thematic epics
+- **Dependency analysis**: Builds dependency graphs, detects cycles, computes implementation order
+- **Readiness assessment**: Ensures issues meet both structural and substantive criteria before marking ready
+- **Board reorganization**: Every run reorganizes the entire board, not just new items
+
+## When to Use
+
+Run `board-fill` when:
+
+- You have items in `todo.md` ready to convert to GitHub issues
+- The board has standalone issues that should be grouped into epics
+- Issues are missing dependency metadata or implementation order
+- You want to assess which issues are truly ready for implementation
+- The board needs reorganization and health diagnostics
+
+## Workflow
+
+<Steps>
+
+### Read and Parse todo.md
+
+1. **Parse todo items**
+   - Reads `todo.md` at project root
+   - Strips leading markers (`-`, `*`)
+   - Presents numbered list
+
+2. **Select items to process**
+   - Choose all, specific numbers, or exclude specific numbers
+   - Remaining items stay in `todo.md` for later
+
+### Full Board Scan
+
+1. **Fetch all open issues**
+   - Excludes `meta:board-overview`
+   - Retrieves labels, sub-issues, dependencies
+
+2. **Categorize issues**
+   - **Epic**: has sub-issues
+   - **Sub-issue**: child of an epic
+   - **Standalone**: neither parent nor child
+
+3. **Present board health summary**
+   - Missing metadata (labels, dependencies, acceptance criteria)
+   - Potential epic grouping candidates
+   - Total counts by category
+
+### Duplicate Detection
+
+1. **New items vs. existing board**
+   - Semantic comparison using keywords
+   - Classifies as: Duplicate / Partial overlap / No match
+
+2. **Existing board cross-deduplication**
+   - Compares existing issues pairwise
+   - Prompts to merge, keep both, or convert to sub-issue
+
+### Item-Level Triage Questioning
+
+Before classification, extracts information needed for genuinely ready issues:
+
+1. **Assess clarity across six dimensions**
+   - Scope/Definition: What does "done" look like?
+   - Value/Why: What user problem does this solve?
+   - Unknowns/Spikes: Open design decisions or research needs?
+   - External Blockers: Dependencies on external teams/services?
+   - Size/Decomposition: Single deliverable or multiple?
+   - User/Stakeholder: Who is affected? Current workaround?
+
+2. **Triage by theme**
+   - Batches items sharing area/domain
+   - Asks only about unclear dimensions
+   - Avoids repetitive questions
+
+3. **Capture structured context**
+   - Stores answers for use in classification, grouping, and acceptance criteria
+   - Unresolved dimensions become readiness gaps later
+
+### Issue Type & Executor Classification
+
+Classifies each item using triage context and keyword signals:
+
+1. **Type classification**
+   - `type:bug`, `type:feature`, `type:refactor`, `type:qa`, `type:docs`, `type:infra`
+   - Considers spike needs for research-heavy items
+
+2. **Executor classification**
+   - `executor:agent`: Clear criteria, bounded scope
+   - `executor:human`: Decisions, infra, external setup
+   - `executor:hybrid`: Agent implements after human direction
+
+3. **Priority, area, and risk**
+   - Priority: `p0` (critical/security) → `p3` (cosmetic)
+   - Area: From `board.areas` in hatch.json or inferred from codebase
+   - Risk: `low` (isolated) → `high` (architectural, security-critical)
+
+### Retrieve Application Context
+
+1. **Project documentation**
+   - Reads specs, ADRs, design docs
+   - Prefers TOC/headers first, expands relevant sections only
+
+2. **Codebase exploration**
+   - Understands current state of affected areas
+   - Uses explore subagents or direct file reads
+
+3. **Consult project learnings**
+   - Matches by area and tags
+   - Surfaces pitfalls, patterns, decisions
+
+4. **External research** (when needed)
+   - For items referencing external libraries/frameworks
+   - Uses Context7 MCP or web research
+
+### Propose Grouping (Epics vs. Standalone)
+
+**Grouping philosophy**: Minimize standalone issues to near-zero. Group aggressively into epics.
+
+1. **Group new items**
+   - Absorb into existing epics first
+   - Form new epics from 2+ items sharing connection
+   - Adopt orphans into thematic epics
+   - Standalone only as last resort
+
+2. **Regroup existing standalone issues**
+   - Applies same aggressive grouping philosophy
+
+3. **Decomposition check**
+   - Evaluates whether items are too large for single issue
+   - Splits along area boundaries or acceptance criteria clusters
+   - Uses triage context for decomposition guidance
+
+### Dependency Analysis & Implementation Order
+
+1. **Infer dependencies**
+   - Explicit references: "Depends on", "Blocked by", "After #N"
+   - Semantic analysis: producer/consumer relationships
+   - Area overlap: soft dependencies for shared areas
+   - Cross-epic dependencies
+
+2. **Build dependency DAG**
+   - Validates no cycles
+   - Computes topological ordering
+
+3. **Determine implementation order**
+   - Within epics: topological order, then priority
+   - Across board: interleave by priority at each depth
+   - Identifies parallel lanes
+
+4. **Present dependency graph and ordering**
+   - Shows hard and soft dependencies
+   - Highlights parallel work opportunities
+   - Drafts `## Dependencies` and `## Implementation Order` sections
+
+### Readiness Assessment
+
+Every issue must pass both **structural** and **substantive** criteria before being marked `status:ready`.
+
+**Structural criteria** (AI can resolve):
+- `## Dependencies` section present
+- Appears in implementation order
+- All required labels present
+- Acceptance criteria present
+- Body follows template structure
+
+**Substantive criteria** (requires user input):
+- Acceptance criteria are specific and testable
+- Scope is bounded (explicit out-of-scope section)
+- No unresolved unknowns
+- Effort is estimable
+
+**Resolution process**:
+1. Classifies each `status:triage` issue as Ready or Not Ready
+2. Resolves structural gaps inline
+3. Asks user for substantive gaps
+4. Re-evaluates after user confirmation
+5. Marks ready only when all criteria met
+
+### Refine Issue Content
+
+Issue bodies follow type-specific templates:
+
+**Bug Report**: Summary, Steps to Reproduce, Expected/Actual Behavior, Acceptance Criteria, Scope, References, Dependencies
+
+**Feature Request**: Summary, Motivation, Proposed Solution, Acceptance Criteria, Scope, References, Dependencies
+
+**Refactor**: Summary, Current State, Proposed Change, Acceptance Criteria, Scope, References, Dependencies
+
+**QA Validation**: Summary, Test Scope, Pass/Fail Criteria, Coverage Targets, Scope, Dependencies
+
+**Epics**: Overview, Sub-issues checklist, Acceptance criteria, all labels
+
+**Acceptance criteria sourcing** (priority order):
+1. Triage Context (user's stated requirements)
+2. User-stated edge cases or constraints
+3. Codebase context (tests, interfaces, patterns)
+4. AI inference (flagged for validation)
+
+**Token-efficient presentation**:
+- Compact summary table for all issues
+- Full details only on request
+- Flags issues needing attention
+
+### Create & Update Issues
+
+1. **Create new issues**
+   - Executes in dependency order (parents before children)
+   - Links sub-issues to epics
+   - Adds to project board with status sync
+
+2. **Update existing issues**
+   - Adds/updates `## Dependencies`
+   - Regenerates `## Implementation Order` for epics
+   - Applies epic regrouping
+   - Marks `status:ready` (never downgrades)
+   - Syncs Projects v2 status
+
+3. **Present summary**
+   - New issues created
+   - Existing issues updated
+   - Board summary statistics
+
+### Refresh Board Dashboard
+
+**Mandatory step** - regenerates the `meta:board-overview` issue:
+
+1. Computes implementation lanes
+2. Assigns models to all open issues
+3. Updates dashboard with current board state
+4. Creates dashboard if it doesn't exist
+
+### Cleanup
+
+Prompts to remove processed items from `todo.md`:
+- Remove all, only created ones, or keep all
+- Preserves skipped/excluded lines
+
+</Steps>
+
+## Configuration in hatch.json
+
+The command reads configuration from `/.agents/hatch.json`:
+
+```json
+{
+  "owner": "your-org",
+  "repo": "your-repo",
+  "board": {
+    "owner": "your-org",
+    "repo": "your-repo",
+    "defaultBranch": "main",
+    "projectNumber": 1,
+    "areas": ["frontend", "backend", "infra"],
+    "labels": {
+      "type": ["type:bug", "type:feature", "type:refactor"],
+      "executor": ["executor:agent", "executor:human", "executor:hybrid"],
+      "status": ["status:triage", "status:ready", "status:in-progress"],
+      "priority": ["priority:p0", "priority:p1", "priority:p2", "priority:p3"],
+      "risk": ["risk:low", "risk:med", "risk:high"]
+    }
+  }
+}
+```
+
+## Examples
+
+### Convert Todo Items to Epic with Sub-Issues
+
+```
+User: Run board-fill
+
+Agent: Here are the items I found in todo.md:
+  1. Add OAuth2 authentication
+  2. Rate limiting middleware
+  3. API documentation
+  4. Unit tests for auth
+
+Which items should I process?
+
+User: all
+
+Agent: [Board scan...]
+
+Board Health:
+  Total open issues: 15 (3 epics, 8 sub-issues, 4 standalone)
+  Missing dependency metadata: #12, #15
+  Missing required labels: #12 — no priority, no area
+
+Continue?
+
+User: yes
+
+Agent: [Duplicate detection finds no matches]
+
+Triage — Auth & Security items:
+
+| # | Item                     | Clarity   | Gaps                    |
+|---|--------------------------|-----------|-------------------------|
+| 1 | OAuth2 authentication    | Ambiguous | Scope, Unknowns         |
+| 2 | Rate limiting middleware | Clear     | —                       |
+| 4 | Unit tests for auth      | Ambiguous | Scope                   |
+
+Questions:
+1. OAuth2 authentication: Which OAuth2 flow (authorization code, PKCE, client credentials)? Any specific providers to support?
+2. Unit tests for auth: Should this cover only the OAuth2 flow, or all authentication paths?
+
+User: 1. PKCE flow, support GitHub and Google. 2. All auth paths including session management.
+
+Agent: [Classification...]
+
+| # | Item                     | Type    | Executor | Priority | Area     | Risk |
+|---|--------------------------|---------|----------|----------|----------|------|
+| 1 | OAuth2 authentication    | feature | hybrid   | p1       | auth     | high |
+| 2 | Rate limiting middleware | feature | agent    | p1       | api      | med  |
+| 3 | API documentation        | docs    | agent    | p2       | api,docs | low  |
+| 4 | Unit tests for auth      | qa      | agent    | p1       | auth     | low  |
+
+Confirm or adjust.
+
+User: confirmed
+
+Agent: [Context retrieval...]
+
+Proposed Grouping:
+
+New Epic: "Authentication & Security Hardening"
+  - #new1: OAuth2 PKCE authentication (GitHub, Google)
+  - #new2: Rate limiting middleware
+  - #new4: Auth test coverage (all paths)
+
+Standalone:
+  - #new3: API documentation
+
+Confirm grouping.
+
+User: Move API docs into the epic too
+
+Agent: Updated grouping:
+
+New Epic: "Authentication & Security Hardening"
+  - #new1: OAuth2 PKCE authentication
+  - #new2: Rate limiting middleware
+  - #new4: Auth test coverage
+  - #new3: API documentation
+
+[Dependency analysis...]
+
+Dependencies & Implementation Order:
+
+Epic "Authentication & Security Hardening":
+  Level 1 (parallel):
+    - #new1: OAuth2 PKCE authentication (no blockers)
+    - #new2: Rate limiting middleware (no blockers)
+  Level 2:
+    - #new4: Auth test coverage (blocked by #new1)
+    - #new3: API documentation (recommended after #new1, #new2)
+
+Confirm dependencies.
+
+User: yes
+
+Agent: [Readiness assessment...]
+
+Readiness gaps resolved:
+
+| Issue | Gap                      | Type        | Resolution                        |
+|-------|--------------------------|-------------|-----------------------------------|
+| #new1 | missing area label       | Structural  | Inferred `area:auth`              |
+| #new2 | vague acceptance criteria| Substantive | Need your input: what rate limits?|
+
+For #new2 (Rate limiting middleware): What rate limits should be enforced? (e.g., 100 req/min per IP, 1000 req/hour per user)
+
+User: 1000 req/hour per API key, 100 req/min per IP
+
+Agent: [Issue creation...]
+
+New Issues Created:
+
+| Type  | Title                              | Issue # | Executor | Parent | Status |
+|-------|------------------------------------|---------|----------|--------|--------|
+| Epic  | Authentication & Security Hardening| #45     | hybrid   | —      | ready  |
+| Sub   | OAuth2 PKCE authentication         | #46     | hybrid   | #45    | ready  |
+| Sub   | Rate limiting middleware           | #47     | agent    | #45    | ready  |
+| Sub   | Auth test coverage                 | #48     | agent    | #45    | ready  |
+| Sub   | API documentation                  | #49     | agent    | #45    | ready  |
+
+Board Summary: 4 created, 2 updated, 4 marked ready, 0 still triage, 2 parallel lanes
+
+All issues created. Should I remove processed items from todo.md?
+
+User: yes, only created ones
+
+Agent: Removed 4 items from todo.md. Done.
+```
+
+### Reorganize Existing Standalone Issues
+
+```
+User: Run board-fill, just reorganize existing issues
+
+Agent: Here are the items I found in todo.md:
+  [empty]
+
+Which items should I process?
+
+User: none, just reorganize the board
+
+Agent: [Board scan...]
+
+Board Health:
+  Total open issues: 22 (2 epics, 6 sub-issues, 14 standalone)
+  Potential epic grouping candidates: #12+#15+#18 (UI refactor theme)
+
+Regroup existing standalones:
+
+Proposed grouping:
+  New Epic: "UI Component Modernization"
+    - #12: Migrate buttons to new design system
+    - #15: Update form validation styling
+    - #18: Dark mode support for dashboard
+
+Confirm regrouping.
+
+User: yes, and add #22 (accessibility audit) to that epic
+
+Agent: Updated grouping:
+
+  New Epic: "UI Component Modernization"
+    - #12: Migrate buttons to new design system
+    - #15: Update form validation styling
+    - #18: Dark mode support for dashboard
+    - #22: Accessibility audit
+
+[Dependency analysis for regrouped issues...]
+
+Existing Issues Updated:
+
+| Issue # | Title                  | Updates Applied                     |
+|---------|------------------------|-------------------------------------|
+| #50     | UI Component Moderniz..| Created as new epic, linked 4 sub-issues |
+| #12     | Migrate buttons...     | Converted to sub-issue of #50, added dependencies |
+| #15     | Update form validation | Converted to sub-issue of #50       |
+| #18     | Dark mode support      | Converted to sub-issue of #50       |
+| #22     | Accessibility audit    | Converted to sub-issue of #50       |
+
+Board Summary: 1 created (epic), 5 updated, 4 marked ready, 0 still triage
+```
+
+## Integration with GitHub Agentic Workflows
+
+hatch3r's board commands operate as the **implementation orchestration layer** above GitHub Agentic Workflows:
+
+- **board-init** sets up the project management structure
+- **board-fill** creates the work items that agentic workflows can triage and label
+- **board-pickup** orchestrates the implementation → review → merge pipeline
+
+Use agentic workflows for continuous background automation, use hatch3r board commands for structured delivery orchestration.
+
+## Error Handling
+
+- **search_issues failure**: Retries once, warns and proceeds without deduplication
+- **issue_write failure**: Reports error, skips that issue, continues with others
+- **sub_issue_write failure**: Reports error but does not delete created issue
+- **Dependency cycles**: Flags and requires resolution before proceeding
+
+## Guardrails
+
+- Never creates issues for duplicate topics without explicit approval
+- Never skips ASK checkpoints
+- Uses correct labels from taxonomy defined in `hatch.json`
+- Keeps issue bodies concise and grounded in user requirements
+- Detects and prevents dependency cycles
+- Never downgrades issue status (only upgrades `triage` → `ready`)
+- Always performs full board scan
+- Preserves existing issue content when appending sections
+- Board Overview is auto-maintained and excluded from analysis

@@ -1,0 +1,160 @@
+---
+title: Cost Tracking
+description: Track token usage and estimate costs for agent sessions. Use when monitoring spend, approaching budget limits, or generating cost reports.
+---
+
+## Overview
+
+The cost tracking skill guides agents through token usage estimation, budget monitoring, and cost optimization for AI agent sessions.
+
+## Quick Start
+
+```
+Task Progress:
+- [ ] Step 1: Review cost tracking configuration
+- [ ] Step 2: Estimate current session token usage
+- [ ] Step 3: Identify cost optimization opportunities
+- [ ] Step 4: Generate cost report
+```
+
+## Step 1: Review Configuration
+
+1. Check `hatch.json` for a `costTracking` section.
+2. Note configured budgets: `sessionBudget`, `issueBudget`, `epicBudget`.
+3. Note warning thresholds and whether `hardStop` is enabled.
+4. If no configuration exists, operate in report-only mode.
+
+### Example Configuration
+
+```json
+{
+  "costTracking": {
+    "sessionBudget": 100000,
+    "issueBudget": 50000,
+    "epicBudget": 200000,
+    "warningThreshold": 0.8,
+    "hardStop": false
+  }
+}
+```
+
+## Step 2: Estimate Token Usage
+
+Estimate tokens for the current session using these rules:
+
+| Content Type | Rule |
+|-------------|------|
+| Messages | ~4 characters per token |
+| Tool calls | JSON length / 4 (input), response length / 4 (output) |
+| File reads | Character count / 4 |
+| Web searches | ~500 tokens per search |
+
+### Cost Calculation
+
+Calculate estimated cost using model tier rates:
+
+| Model Tier | Input (per 1M tokens) | Output (per 1M tokens) |
+|------------|----------------------|------------------------|
+| Haiku | $0.80 | $4.00 |
+| Sonnet | $3.00 | $15.00 |
+| Opus | $15.00 | $75.00 |
+
+**Formula:** `(inputTokens / 1000000 * inputRate) + (outputTokens / 1000000 * outputRate)`
+
+## Step 3: Identify Optimizations
+
+Review usage patterns for savings:
+
+### Large File Reads
+
+Were files read multiple times without changes? Cache instead.
+
+### Model Tier
+
+Could routine tasks (linting, formatting) use a faster/cheaper model?
+
+### Context Bloat
+
+Is irrelevant context accumulating? Summarize and trim.
+
+### Batching
+
+Were multiple small tool calls made that could be combined?
+
+### Scope Creep
+
+Did work expand beyond the original issue? Scope back.
+
+## Step 4: Generate Report
+
+Produce a cost report with:
+
+### Summary
+
+- Total estimated tokens (input + output)
+- Estimated cost at the current model tier
+- Budget status (if configured)
+
+### Breakdown
+
+| Activity | Input Tokens | Output Tokens | Estimated Cost |
+|----------|--------------|---------------|----------------|
+| File reads | ... | ... | ... |
+| Implementation | ... | ... | ... |
+| Testing | ... | ... | ... |
+| Total | ... | ... | ... |
+
+### Budget Status
+
+- **Session budget:** 45,000 / 100,000 tokens (45% used)
+- **Status:** Green (below warning threshold)
+
+### Optimization Opportunities
+
+1. **File re-reads** - `src/components/Auth.tsx` read 3 times (save ~5,000 tokens with caching)
+2. **Model tier** - Linting could use Haiku instead of Sonnet (save ~$0.50 per run)
+3. **Context trimming** - Irrelevant spec sections loaded (save ~10,000 tokens)
+
+## Cost Optimization Best Practices
+
+### Read Files Once
+
+- Cache file contents in conversation context
+- Only re-read if you've modified the file
+- Use Edit tool to track changes
+
+### Use Appropriate Model Tiers
+
+- **Haiku** - Linting, formatting, simple code generation
+- **Sonnet** - Feature implementation, bug fixes, refactoring
+- **Opus** - Architecture decisions, complex debugging, security review
+
+### Batch Operations
+
+- Combine multiple file reads in a single message
+- Group related tool calls
+- Avoid back-and-forth for simple queries
+
+### Trim Context
+
+- Load only relevant specs for the task
+- Summarize previous work instead of keeping full history
+- Use sub-agents for isolated subtasks
+
+### Scope Discipline
+
+- Stay focused on acceptance criteria
+- Defer out-of-scope improvements to separate issues
+- Use checkpoints to prevent scope creep
+
+## Related Skills
+
+- **[Context Health](/skills/context-health)** - Context health monitoring complements cost tracking
+- **[Issue Workflow](/skills/issue-workflow)** - Cost tracking integrates with issue workflow
+
+## Definition of Done
+
+- [ ] Cost configuration reviewed (or report-only mode noted)
+- [ ] Token usage estimated for current session
+- [ ] Optimization opportunities identified
+- [ ] Cost report generated with budget status

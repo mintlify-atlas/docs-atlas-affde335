@@ -1,0 +1,520 @@
+---
+title: Sub-Agentic Architecture
+description: Parallel delegation, implementer agent pattern, and dependency-aware orchestration
+---
+
+hatch3r's sub-agentic architecture enables parallel execution, dependency-aware orchestration, and consistent quality through specialized agent delegation. This pattern applies universally across all contexts: board commands, workflow commands, and plain chat.
+
+## Core Principles
+
+### 1. Parent-Child Orchestration
+
+**Parent orchestrators** (commands like `board-pickup`, `workflow`) coordinate high-level operations:
+- Git operations (branch, commit, push)
+- GitHub operations (issue updates, PR creation, Projects V2 sync)
+- Multi-agent coordination
+- Dependency ordering
+- Quality gates
+
+**Child sub-agents** (like `hatch3r-implementer`, `hatch3r-researcher`) focus on single tasks:
+- Research a specific topic
+- Implement a single issue
+- Review code changes
+- Write tests
+- Audit security
+
+**Clear boundaries**: Sub-agents NEVER create branches, commits, or PRs. The parent owns all git/board operations.
+
+### 2. Maximum Parallelism
+
+**Independent sub-agents run concurrently**:
+- Spawn as many as the platform supports
+- No artificial concurrency limits
+- Dependency-aware scheduling (only serialize when required)
+
+**Examples**:
+- Epic with 5 independent sub-issues → spawn 5 implementers in parallel
+- Batch mode with 4 issues → spawn 4 researchers in parallel, then 4 implementers
+- Quality phase → spawn reviewer + test-writer + security-auditor + docs-writer in parallel
+
+### 3. Structured Communication
+
+Sub-agents return structured results:
+
+```markdown
+## Implementation Result: #42
+
+**Status:** SUCCESS | PARTIAL | BLOCKED
+
+**Files changed:**
+- src/api/server.ts -- Added WebSocket upgrade handling
+- src/notifications/service.ts -- Emit events via WS
+
+**Tests written:**
+- tests/unit/ws-server.test.ts -- Connection lifecycle tests
+- tests/integration/notifications.test.ts -- End-to-end event flow
+
+**Browser verification:** SKIPPED (non-UI)
+
+**Issues encountered:** None
+
+**Notes:** Redis connection pool reuses existing pool from src/infra/redis.ts
+```
+
+Parent orchestrators parse these results to:
+- Detect failures/blockers
+- Resolve file conflicts between parallel sub-agents
+- Aggregate changes for commit
+- Generate PR descriptions
+
+---
+
+## The Universal Sub-Agent Pipeline
+
+The `hatch3r-agent-orchestration` rule (scope: always) mandates this three-phase pipeline for **every task in every context**:
+
+### Phase 1: Research
+
+**Spawn**: `hatch3r-researcher` via Task tool
+
+**When**: Before every implementation (skip only for trivial single-line edits like typos, comment fixes)
+
+**Input**:
+```markdown
+Research brief: {issue title, body, acceptance criteria}
+Modes: {by issue type}
+Depth: {by risk level}
+Project context: {pre-loaded docs, specs, ADRs}
+```
+
+**Modes by issue type**:
+- `type:bug`: `symptom-trace`, `root-cause`, `codebase-impact`
+- `type:feature`: `codebase-impact`, `feature-design`, `architecture`
+- `type:refactor`: `current-state`, `refactoring-strategy`, `migration-path`
+- `type:qa`: `codebase-impact`
+
+**Depth by risk**:
+- `risk:low`: `quick` (~2k tokens per mode, scan headers, concise assessment)
+- `risk:med`: `standard` (~5k tokens per mode, read files, structured tables)
+- `risk:high`: `deep` (~15k tokens per mode, full analysis, no row limits)
+
+**Output**: Structured findings for each mode (codebase impact, feature breakdown, architecture design, risk assessment, etc.)
+
+**Parallelism**:
+- **Single issue**: One researcher
+- **Epic**: One researcher shared across all sub-issues (codebase-impact + risk-assessment as shared context)
+- **Batch**: One researcher per issue (issues are unrelated, each needs individual context)
+
+### Phase 2: Implement
+
+**Spawn**: `hatch3r-implementer` via Task tool (one per task)
+
+**When**: For ALL code changes (never implement inline)
+
+**Input**:
+```markdown
+Follow the hatch3r-implementer agent protocol.
+
+Issue: #{number} -- {title}
+Type: {bug/feature/refactor/qa}
+Acceptance criteria: {from issue body}
+
+Researcher output: {structured findings from Phase 1}
+
+Project documentation:
+- Relevant specs: {list}
+- Relevant ADRs: {list}
+
+Rules (scope: always):
+- hatch3r-agent-orchestration
+- hatch3r-code-standards
+- hatch3r-error-handling
+- hatch3r-testing
+- hatch3r-tooling-hierarchy
+- hatch3r-security-patterns
+- hatch3r-observability
+- hatch3r-git-conventions
+- hatch3r-dependency-management
+
+Learnings: {relevant learnings from /.agents/learnings/}
+
+Tooling hierarchy:
+1. Project docs (docs/specs/, docs/adr/)
+2. Codebase exploration (grep, glob, read)
+3. Context7 MCP (resolve-library-id → query-docs)
+4. Web research (Brave Search MCP)
+
+Do NOT create branches, commits, or PRs.
+```
+
+**Workflow** (implementer follows issue-type skill):
+1. Read inputs and specs
+2. Load issue-type skill (bug-fix, feature, refactor, qa-validation)
+3. Implement following skill's workflow
+4. Write tests (unit, integration, regression)
+5. Verify quality (lint, typecheck, test)
+6. Browser verification for UI changes (Playwright MCP)
+7. Return structured result
+
+**Output**: Structured result with files changed, tests written, issues encountered
+
+**Parallelism**:
+- **Single issue**: One implementer
+- **Epic**: One implementer per sub-issue, grouped by dependency level (Level 1 all parallel, await Level 1 before starting Level 2, etc.)
+- **Batch**: One implementer per issue, grouped by dependency level
+
+**Example (Epic with 4 sub-issues)**:
+```
+Level 1 (no blockers, parallel):
+  Spawn implementer for #11
+  Await #11
+
+Level 2 (depends on Level 1, parallel):
+  Spawn implementer for #12
+  Spawn implementer for #13
+  Await #12, #13
+
+Level 3 (depends on Level 2):
+  Spawn implementer for #14
+  Await #14
+```
+
+### Phase 3: Quality
+
+**Spawn**: Specialist sub-agents in parallel (maximum concurrency)
+
+**Always spawn** (mandatory for every code change):
+
+1. **`hatch3r-reviewer`**: Code review of all changes
+   - Input: Diff, acceptance criteria
+   - Output: Structured feedback by priority (critical, warning, suggestion)
+
+2. **`hatch3r-test-writer`**: Tests for all code changes
+   - Unit tests for new logic
+   - Regression tests for bug fixes
+   - Integration tests for cross-module changes
+   - Input: Files changed, acceptance criteria
+   - Output: Test files created, coverage metrics
+
+3. **`hatch3r-security-auditor`**: Security review of all code changes
+   - Audit data flows, access control, input validation, secret management
+   - Input: Files changed, data flow diagram
+   - Output: Security findings by severity (critical, high, medium, low)
+
+**Always evaluate** (spawn when applicable):
+
+4. **`hatch3r-docs-writer`**: Spawn when changes affect:
+   - Public APIs
+   - Architectural patterns
+   - User-facing behavior
+   - Specs or ADRs need updating
+   - Input: Files changed, API surfaces
+   - Output: Updated specs, ADRs, process docs
+
+**Conditional specialists** (spawn when triggered):
+
+5. **`hatch3r-lint-fixer`**: When lint or type errors present after implementation
+6. **`hatch3r-a11y-auditor`**: When UI or accessibility changes (area:ui, area:a11y labels)
+7. **`hatch3r-perf-profiler`**: When performance-sensitive changes (area:performance label, hot paths)
+8. **`hatch3r-dependency-auditor`**: When dependencies change (package.json modified, new imports)
+
+**Parallelism**: Spawn all applicable specialists at once, await all
+
+**Example (feature with UI changes)**:
+```
+Phase 3 (all parallel):
+  Spawn hatch3r-reviewer
+  Spawn hatch3r-test-writer
+  Spawn hatch3r-security-auditor
+  Spawn hatch3r-docs-writer (APIs changed)
+  Spawn hatch3r-a11y-auditor (UI changes)
+  Await all 5
+  Apply feedback
+```
+
+---
+
+## Delegation Patterns
+
+### Pattern 1: Single Standalone Issue
+
+**Context**: User picks up one issue (not part of an epic, not in a batch)
+
+**Workflow**:
+1. Parent: `board-pickup` (orchestrator)
+2. Phase 1: Spawn 1 `hatch3r-researcher`
+3. Phase 2: Spawn 1 `hatch3r-implementer`
+4. Phase 3: Spawn specialists (reviewer, test-writer, security-auditor, docs-writer if applicable)
+5. Parent: Create branch, commit, push, create PR, sync board
+
+**Parallelism**: Specialists run in parallel (Phase 3)
+
+### Pattern 2: Epic with Sub-Issues
+
+**Context**: User picks up an epic or sub-issue from an epic
+
+**Workflow**:
+1. Parent: `board-pickup` (orchestrator)
+2. Phase 1: Spawn 1 `hatch3r-researcher` (shared context for all sub-issues)
+3. Phase 2: For each dependency level:
+   - Spawn 1 `hatch3r-implementer` per sub-issue in current level (parallel within level)
+   - Await all sub-agents in current level
+   - Resolve file conflicts between parallel outputs
+   - Advance to next level
+4. Phase 3: Spawn specialists across entire epic (reviewer, test-writer, security-auditor, docs-writer if applicable)
+5. Parent: Create branch, commit (all sub-issues), push, create PR, sync board
+
+**Parallelism**: 
+- Sub-issues at same dependency level run in parallel
+- Specialists run in parallel
+
+**Example (Epic with 5 sub-issues)**:
+```
+Phase 1: Spawn 1 researcher (codebase-impact + risk-assessment)
+
+Phase 2:
+  Level 1: Spawn implementers for #11, #12, #13 (parallel, no mutual dependencies)
+  Await #11, #12, #13
+  
+  Level 2: Spawn implementers for #14, #15 (parallel, both depend on Level 1)
+  Await #14, #15
+
+Phase 3: Spawn reviewer, test-writer, security-auditor, docs-writer (parallel)
+Await all
+
+Commit: "feat: implement real-time notifications (#11, #12, #13, #14, #15)"
+PR: "Closes #10, Closes #11, Closes #12, Closes #13, Closes #14, Closes #15"
+```
+
+### Pattern 3: Batch Mode (Multiple Standalone Issues)
+
+**Context**: User picks up multiple independent issues in one session
+
+**Workflow**:
+1. Parent: `board-pickup` (orchestrator)
+2. Phase 1: Spawn 1 `hatch3r-researcher` per issue (parallel, issues are unrelated)
+3. Phase 2: For each dependency level:
+   - Spawn 1 `hatch3r-implementer` per issue in current level (parallel within level)
+   - Await all sub-agents in current level
+   - Resolve file conflicts between parallel outputs
+   - Advance to next level
+4. Phase 3: Spawn specialists across entire batch (reviewer, test-writer, security-auditor, docs-writer if applicable)
+5. Parent: Create branch, commit (all issues), push, create PR, sync board
+
+**Parallelism**:
+- Researchers run in parallel (Phase 1)
+- Implementers at same dependency level run in parallel (Phase 2)
+- Specialists run in parallel (Phase 3)
+
+**Example (Batch: 4 independent issues)**:
+```
+Phase 1: Spawn 4 researchers (parallel, one per issue)
+Await all 4
+
+Phase 2:
+  Level 1: Spawn 4 implementers (parallel, all independent)
+  Await all 4
+
+Phase 3: Spawn reviewer, test-writer, security-auditor, docs-writer (parallel)
+Await all
+
+Commit: "batch: UI fixes and auth improvements (#1, #3, #7, #9)"
+PR: "Closes #1, Closes #3, Closes #7, Closes #9"
+```
+
+### Pattern 4: Plain Chat (Single Task)
+
+**Context**: User requests implementation in plain chat (no command invoked, no issue reference)
+
+**Workflow**:
+1. Parent: Parse request into task (infer type, create synthetic acceptance criteria)
+2. Phase 1: Spawn 1 `hatch3r-researcher` (skip for trivial edits)
+3. Phase 2: Spawn 1 `hatch3r-implementer`
+4. Phase 3: Spawn specialists (reviewer, test-writer, security-auditor, docs-writer if applicable)
+5. Parent: Implement changes inline (no branch/PR if not requested)
+
+**Example**:
+```
+User: "Add a dark mode toggle to the settings page"
+
+Agent: Classifies as type:feature, risk:low
+
+Phase 1: Spawn researcher (codebase-impact, feature-design)
+Phase 2: Spawn implementer (hatch3r-feature skill)
+Phase 3: Spawn reviewer, test-writer, security-auditor, a11y-auditor (parallel)
+
+Agent: Implements changes, reports completion
+```
+
+### Pattern 5: Plain Chat (Multiple Tasks)
+
+**Context**: User provides multiple tasks in one message
+
+**Workflow**:
+1. Parent: Parse message into discrete tasks
+2. Phase 1: Spawn 1 `hatch3r-researcher` per task (parallel)
+3. Phase 2: For each dependency level:
+   - Spawn 1 `hatch3r-implementer` per task in current level (parallel within level)
+   - Await all sub-agents in current level
+   - Advance to next level
+4. Phase 3: Spawn specialists across all tasks (parallel)
+5. Parent: Implement changes inline (or create branch/PR if requested)
+
+**Example**:
+```
+User: "Fix the login bug, add dark mode, and update the README"
+
+Agent: Parses into 3 tasks (bug, feature, docs)
+
+Phase 1: Spawn 3 researchers (parallel)
+Phase 2: Spawn 3 implementers (parallel, all independent)
+Phase 3: Spawn reviewer, test-writer, security-auditor, docs-writer (parallel)
+
+Agent: Implements all changes, reports completion
+```
+
+---
+
+## Dependency-Aware Orchestration
+
+### Building the Dependency Graph
+
+**Sources**:
+1. **Explicit dependencies**: From `board-fill` parsing (`## Dependencies` section, `[blocked by #N]` syntax)
+2. **Code dependencies**: Files touched, modules affected (inferred during research phase)
+3. **Logical dependencies**: Epic → sub-issue relationships
+
+**Graph structure**:
+```typescript
+interface DependencyGraph {
+  nodes: Map<number, Issue>;  // issue number → issue
+  edges: Map<number, number[]>;  // issue number → blockers
+}
+```
+
+**Hard vs soft dependencies**:
+- **Hard**: `Blocked by #N` (prevents pickup until #N closed)
+- **Soft**: `Recommended after #N` (advisory, doesn't prevent pickup)
+
+Only hard dependencies affect availability categorization and block pickup.
+
+### Topological Sorting
+
+**Algorithm**:
+1. Find all nodes with no unsatisfied hard blockers → Level 1
+2. Remove Level 1 nodes from graph
+3. Repeat until graph is empty → Level 2, Level 3, ...
+
+**Output**: Implementation order by level
+
+**Epic example**:
+```markdown
+## Implementation Order
+
+**Level 1** (can start immediately):
+- #11 Set up WebSocket server
+
+**Level 2** (after #11):
+- #12 Update frontend to subscribe to events
+- #13 Add notification persistence layer (parallel with #12)
+
+**Level 3** (after #12, #13):
+- #14 End-to-end notification testing
+```
+
+### Parallel Execution Within Levels
+
+**Same dependency level → spawn all in parallel**:
+
+```javascript
+// Level 2 has #12 and #13 (no mutual dependencies)
+await Promise.all([
+  spawnImplementer(12),  // Frontend changes
+  spawnImplementer(13),  // Backend persistence
+]);
+```
+
+**Conflict resolution**: If parallel sub-agents modify the same file, the parent orchestrator:
+1. Detects conflict (same file in multiple results)
+2. Applies changes sequentially (first sub-agent → second sub-agent)
+3. OR prompts user to resolve manually
+
+---
+
+## Subagent Spawning Protocol
+
+**Every subagent spawn MUST**:
+
+1. **Use Task tool** with `subagent_type: "generalPurpose"`
+
+2. **Include in prompt**:
+   - The agent protocol to follow (e.g., "Follow the hatch3r-implementer agent protocol")
+   - All `scope: always` rules from `/.agents/rules/`
+   - Project's tooling hierarchy (Context7, web research)
+   - Relevant learnings from `/.agents/learnings/`
+
+3. **Launch maximum parallelism**: No artificial concurrency limit
+
+4. **Await and review results**: Parse structured output, detect failures, resolve conflicts
+
+**Example**:
+```markdown
+Task: Implement #42 -- Add WebSocket server
+
+Follow the hatch3r-implementer agent protocol.
+
+Issue: #42 -- Add WebSocket server
+Type: feature
+Acceptance criteria:
+- WebSocket server listens on port 3001
+- Handles connection lifecycle (open, message, close, error)
+- Broadcasts messages to all connected clients
+
+Researcher output:
+{codebase-impact: existing Express server on port 3000, can add WS upgrade handler}
+{feature-design: Use `ws` library, attach to existing HTTP server}
+{architecture: Connection manager singleton, message router}
+
+Rules (scope: always):
+- hatch3r-code-standards
+- hatch3r-error-handling
+- hatch3r-testing
+- hatch3r-security-patterns
+
+Tooling hierarchy:
+1. Project docs (docs/specs/03_realtime-events.md)
+2. Codebase (src/api/server.ts)
+3. Context7 MCP (query ws library docs)
+4. Web research (WebSocket security best practices)
+
+Do NOT create branches, commits, or PRs.
+```
+
+---
+
+## Benefits of Sub-Agentic Architecture
+
+1. **Parallelism**: Independent work runs concurrently (epic sub-issues, batch issues, quality specialists)
+2. **Consistency**: Every task follows the same three-phase pipeline
+3. **Quality**: Mandatory specialist review before PR creation
+4. **Context preservation**: Parent orchestrator maintains board/git context across all sub-agents
+5. **Scalability**: Batch mode can process 10+ independent issues in one session
+6. **Dependency safety**: Topological sorting ensures correct execution order
+7. **Failure isolation**: Sub-agent failures don't crash the parent (report BLOCKED, prompt user)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Learn about the 15 specialized agents and their roles
+  </Card>
+  <Card title="Board Management" icon="table" href="/concepts/board-management">
+    See sub-agentic orchestration in action with board-pickup
+  </Card>
+  <Card title="Rules" icon="gavel" href="/concepts/rules">
+    Read the agent-orchestration rule that mandates the pipeline
+  </Card>
+  <Card title="Skills" icon="wand-magic-sparkles" href="/concepts/skills">
+    Understand which skills implementer sub-agents execute
+  </Card>
+</CardGroup>

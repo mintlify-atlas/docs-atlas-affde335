@@ -1,0 +1,161 @@
+---
+title: Skills Overview
+description: Skills are reusable workflows that guide hatch3r agents through complex development tasks with structured steps, quality gates, and agent delegation patterns.
+---
+
+## What are Skills?
+
+Skills are structured workflows that hatch3r agents follow when implementing features, fixing bugs, refactoring code, and handling other development tasks. Each skill provides:
+
+- **Step-by-step guidance** with clear checkpoints
+- **Quality gates** ensuring code meets standards before PR creation
+- **Agent delegation patterns** for research, implementation, and review
+- **Definition of Done** checklists for completeness
+- **Related skills** for complementary workflows
+
+## Skill Categories
+
+### Development Skills
+
+Core workflows for building and maintaining code:
+
+- **[Feature](/skills/feature)** - End-to-end feature implementation with vertical slice delivery
+- **[Bug Fix](/skills/bug-fix)** - Structured diagnosis and minimal fix approach
+- **[Refactor](/skills/refactor)** - Internal code quality improvements preserving behavior
+- **[Logical Refactor](/skills/logical-refactor)** - Behavior changes without new features
+- **[Visual Refactor](/skills/visual-refactor)** - UI/UX changes with accessibility compliance
+
+### Quality & Testing
+
+Workflows ensuring code quality and compliance:
+
+- **[Accessibility Audit](/skills/a11y-audit)** - WCAG AA compliance auditing and fixes
+- **[Performance Audit](/skills/perf-audit)** - Profiling and optimization against budgets
+- **[QA Validation](/skills/qa-validation)** - E2E validation with structured pass/fail reporting
+- **[Dependency Audit](/skills/dep-audit)** - Security and freshness audits for dependencies
+
+### Workflow & Process
+
+GitHub and release management workflows:
+
+- **[Issue Workflow](/skills/issue-workflow)** - 8-step agentic development from issue to PR
+- **[PR Creation](/skills/pr-creation)** - Pull request creation with project conventions
+- **[Release](/skills/release)** - Version bumping, changelog generation, and deployment
+- **[Incident Response](/skills/incident-response)** - Structured triage and post-mortem workflow
+- **[Architecture Review](/skills/architecture-review)** - ADR creation and decision evaluation
+
+### Customization
+
+Workflows for tailoring hatch3r to your project:
+
+- **[Agent Customization](/skills/agent-customize)** - Model overrides and project-specific instructions
+- **[Command Customization](/skills/command-customize)** - Command behavior and description overrides
+- **[Skill Customization](/skills/skill-customize)** - Workflow additions and prerequisites
+- **[Rule Customization](/skills/rule-customize)** - Scope and content customization for rules
+- **[Recipe Management](/skills/recipe)** - Creating and managing workflow recipes
+
+### Monitoring
+
+Session health and cost management:
+
+- **[Context Health](/skills/context-health)** - Monitoring conversation quality during long sessions
+- **[Cost Tracking](/skills/cost-tracking)** - Token usage and budget monitoring
+
+## How Skills Work
+
+### 1. Issue Type Mapping
+
+When working on a GitHub issue, hatch3r automatically loads the appropriate skill:
+
+| Issue Type | Skill |
+|------------|-------|
+| Bug report | `hatch3r-bug-fix` |
+| Feature request | `hatch3r-feature` |
+| Code refactor | `hatch3r-refactor` |
+| Logical refactor | `hatch3r-logical-refactor` |
+| Visual refactor | `hatch3r-visual-refactor` |
+| QA E2E validation | `hatch3r-qa-validation` |
+
+### 2. Agent Delegation
+
+Skills define mandatory agent delegation points using the Task tool:
+
+- **Researcher agents** gather context before implementation
+- **Implementer agents** handle focused implementation tasks
+- **Reviewer agents** perform code review before PR creation
+- **Specialized agents** for audits (a11y, performance, dependencies)
+
+### 3. Quality Gates
+
+Every skill includes verification steps:
+
+```bash
+npm run lint && npm run typecheck && npm run test
+```
+
+Skills with UI changes add browser verification steps to visually confirm acceptance criteria.
+
+### 4. Test-First Options
+
+Many skills support TDD approaches:
+
+- **Feature**: Write acceptance tests before implementing vertical slice
+- **Bug Fix**: Write failing regression test before fixing
+- **Refactor**: All existing tests must pass without modification
+
+## Skill Customization
+
+Every skill can be customized for your project:
+
+1. Create `.hatch3r/skills/{skill-id}.customize.yaml` for structured overrides
+2. Create `.hatch3r/skills/{skill-id}.customize.md` for additional workflow steps
+3. Run `npx hatch3r sync` to propagate changes
+
+See [Skill Customization](/skills/skill-customize) for details.
+
+## Common Patterns
+
+### Vertical Slice Delivery
+
+Feature and bug fix skills follow a vertical slice approach:
+
+- **Data model** changes first
+- **Domain logic** implementation
+- **API/backend** integration
+- **UI** components and flows
+- **Tests** at each layer
+
+### Minimal Changes
+
+Bug fix and refactor skills emphasize minimal diffs:
+
+- Fix root cause only
+- No unrelated changes
+- No scope creep
+- Remove dead code
+
+### Browser Verification
+
+Skills with UI changes include browser verification:
+
+- Start dev server if needed
+- Navigate to affected surfaces
+- Confirm visual and functional correctness
+- Capture screenshots for PR evidence
+- Check console for errors
+
+### Definition of Done
+
+Every skill ends with a DoD checklist ensuring:
+
+- Acceptance criteria met
+- Tests written and passing
+- Quality gates satisfied
+- Documentation updated
+- Security and privacy invariants respected
+
+## Next Steps
+
+- Explore individual skill workflows in the navigation
+- Learn about [customizing skills](/skills/skill-customize) for your project
+- Review [issue workflow](/skills/issue-workflow) for the full development cycle

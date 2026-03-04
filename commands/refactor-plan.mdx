@@ -1,0 +1,266 @@
+---
+title: Refactor Plan
+description: Plan refactoring or migration effort using parallel researchers to produce spec, ADRs, and phased execution plan
+---
+
+Take a refactoring goal or migration need and produce complete refactoring specification with phased execution plan, architectural decisions, and board-ready work items.
+
+## Purpose
+
+Transform a refactoring need into actionable plan:
+- Refactoring specification with current state, target state, and transformation plan
+- Behavioral invariants (what must be preserved)
+- Phased execution with parallel lanes and rollback points
+- Architectural decisions (ADRs) when approach involves significant design choices
+- Board-ready epic with phase items for GitHub issues
+
+## When to Use
+
+- Restructuring modules or code organization
+- Migrating to new framework or library
+- Improving code quality or reducing technical debt
+- Evolving data models or API contracts
+- Overhauling design system or component hierarchy
+- Planning large-scale refactoring before execution
+
+## Refactoring Types Handled
+
+Detects and plans for all types:
+
+- **Structural**: Module restructuring, extraction, dependency decoupling, dead code removal
+- **Logical**: Behavior flow changes, data model migrations, API contract evolution
+- **Visual**: Design system overhauls, component hierarchy restructuring, accessibility compliance
+- **Migration**: Framework/library swap, database migration, architecture shift
+- **Mixed**: Command detects relevant dimensions and adjusts researcher prompts
+
+## What It Generates
+
+- **Refactoring Spec** (`docs/specs/{NN}_{refactor-slug}.md`) - Current state, target state, transformations, phases, risks, completion criteria
+- **ADRs** (`docs/adr/{NNNN}_{decision}.md`) - Architectural decisions for significant refactoring choices
+- **todo.md entries** - Epic + phase items in board-fill format, mapped to execution skills
+
+## Sub-Agent Architecture
+
+Spawns 4 parallel researcher sub-agents using the Task tool:
+
+<Steps>
+  <Step title="Current State Analyzer">
+    Maps complexity, coupling, cohesion, test coverage, code smells, and patterns using the `current-state` researcher mode (dimension-specific focus).
+  </Step>
+  
+  <Step title="Refactoring Strategy Designer">
+    Designs transformations, behavioral invariants, interface contracts, and effort estimates using the `refactoring-strategy` researcher mode (dimension-specific focus).
+  </Step>
+  
+  <Step title="Risk Assessor">
+    Identifies breaking changes, downstream consumers, regression hotspots, and rollback strategy using the `risk-assessment` researcher mode.
+  </Step>
+  
+  <Step title="Migration Path Planner">
+    Designs phased execution plan, parallel lanes, rollback points, and skill mapping using the `migration-path` researcher mode.
+  </Step>
+</Steps>
+
+## Workflow
+
+<Steps>
+  <Step title="Gather Refactoring Goal">
+    Collects title, motivation, target area, desired end state, constraints, and refactoring type (detects dimension: structural/logical/visual/migration).
+  </Step>
+  
+  <Step title="Load Project Context">
+    Reads specs, ADRs, todo.md, related GitHub issues, relevant learnings, and assesses test coverage in target area.
+  </Step>
+  
+  <Step title="Spawn Parallel Researchers">
+    Launches all 4 researchers concurrently with refactoring brief (including detected dimension) and project context. Each follows hatch3r-researcher agent protocol.
+  </Step>
+  
+  <Step title="Synthesize & Review Research">
+    Presents merged summary with affected files, phases, effort, ADRs needed, risks, breaking changes, test gaps, and prerequisites. Highlights conflicts.
+  </Step>
+  
+  <Step title="Generate Refactoring Spec">
+    Creates refactoring specification with scope, current state metrics, target state, behavioral invariants, transformation plan, phased execution, and risks.
+  </Step>
+  
+  <Step title="Generate ADRs">
+    Creates architectural decision records for significant design choices (if applicable — e.g., framework selection, pattern introduction).
+  </Step>
+  
+  <Step title="Generate todo.md Entries">
+    Produces epic with phase items ordered for safe execution. Maps phases to appropriate execution skills (hatch3r-refactor, hatch3r-logical-refactor, hatch3r-visual-refactor).
+  </Step>
+  
+  <Step title="Write Files">
+    After user confirmation, writes refactoring spec, ADRs (if any), updates todo.md, and notes glossary updates if needed.
+  </Step>
+</Steps>
+
+## Refactoring Spec Structure
+
+```markdown
+# Refactoring: Title
+
+## Overview
+Motivation and target end state
+
+## Scope
+### In Scope
+- Areas/transformations included
+### Out of Scope
+- Explicitly excluded
+
+## Current State
+Problems, complexity, coupling
+
+### Key Metrics
+| Metric | Current | Target |
+
+## Target State
+Desired architecture after refactoring
+
+## Behavioral Invariants
+| # | Invariant | Verification |
+
+## Transformation Plan
+| # | Transformation | Type | From | To |
+
+## Phased Execution
+| Phase | Title | Scope | Skill | Effort | Dependencies |
+
+### Phase Details
+Per-phase goals, files, verification
+
+### Parallel Lanes
+Which phases can execute concurrently
+
+### Critical Path
+Sequential dependency chain with total effort
+
+## Breaking Changes
+| What Breaks | Who Is Affected | Migration Path |
+
+## Risks & Mitigations
+| Risk | Likelihood | Impact | Mitigation |
+
+## Prerequisites
+- Tests to add before refactoring
+- Documentation to update
+- Approvals to obtain
+
+## Completion Criteria
+- All phases verified
+- All behavioral invariants confirmed
+- No test regression
+- Dead code removed
+- Documentation updated
+```
+
+## Examples
+
+### State Management Migration
+```markdown
+Refactoring: Migrate from Redux to Zustand
+Motivation: Reduce boilerplate, improve DX, simplify state logic
+Target: 45 Redux files → Zustand stores
+Dimension: Structural + Logical
+
+Researchers find:
+- Affected: 45 files across 8 modules
+- Phases: 4 (setup, migrate auth, migrate data, cleanup)
+- Effort: XL (3 weeks)
+- ADRs: 1 (Zustand vs Jotai vs MobX)
+- Risks: 2 high (breaking change for external consumers, testing gap)
+- Prerequisites: Add integration tests for state flows
+
+Generates:
+- Refactoring spec with migration strategy, invariants
+- ADR comparing state management libraries (Zustand chosen)
+- todo.md: P2 epic with 5 phases (Phase 0: tests, 1-4: migration)
+```
+
+### Component Library Overhaul
+```markdown
+Refactoring: Migrate to design system components
+Motivation: Consistent UI, accessibility compliance, maintainability
+Target: 120 ad-hoc components → design system primitives
+Dimension: Visual
+
+Researchers find:
+- Affected: 120 files (85 components, 35 pages)
+- Phases: 6 (setup design system, migrate buttons, forms, layouts, modals, pages)
+- Effort: XXL (6 weeks)
+- ADRs: 1 (Radix UI vs Headless UI)
+- Risks: 1 high (visual regression), 2 medium (breaking API changes)
+- Prerequisites: Set up visual regression testing
+
+Generates:
+- Refactoring spec with component mapping, a11y requirements
+- ADR comparing component libraries (Radix UI chosen)
+- todo.md: P1 epic with 7 phases (Phase 0: visual tests, 1-6: migration)
+```
+
+### Database Schema Migration
+```markdown
+Refactoring: Add multi-tenancy to database schema
+Motivation: Support enterprise customers with data isolation
+Target: Single-tenant schema → multi-tenant with tenant_id
+Dimension: Logical
+
+Researchers find:
+- Affected: 25 tables, 150 queries
+- Phases: 5 (add tenant_id, migrate data, update queries, add RLS, cleanup)
+- Effort: XL (4 weeks)
+- ADRs: 2 (Row-level security approach, migration strategy)
+- Risks: 3 high (data migration, query performance, zero-downtime requirement)
+- Prerequisites: Full backup, rollback plan, shadow table testing
+
+Generates:
+- Refactoring spec with schema changes, data migration plan
+- ADRs for RLS implementation and zero-downtime migration
+- todo.md: P0 epic with 6 phases (Phase 0: backup/testing setup, 1-5: migration)
+```
+
+## Phase Safety Rules
+
+Every phase must:
+- Leave codebase in working state (no broken builds)
+- Pass all existing tests (no regression)
+- Be independently reviewable and deployable
+- Have clear rollback strategy
+- Verify behavioral invariants
+
+If transformation cannot be split into safe phases, flagged to user.
+
+## Skill Mapping
+
+Migration path planner maps phases to execution skills:
+- **Structural refactoring** → `hatch3r-refactor` skill
+- **Logical refactoring** → `hatch3r-logical-refactor` skill
+- **Visual refactoring** → `hatch3r-visual-refactor` skill
+- **Mixed** → Appropriate skill per phase
+
+## Test Coverage Requirements
+
+If current state analyzer finds weak test coverage:
+- Migration path planner MUST include Phase 0 for test scaffolding
+- Behavioral invariants MUST have verification strategy
+- Cannot proceed without adequate coverage
+
+## Cross-Command Integration
+
+After completion:
+- **`board-fill`** - Create GitHub issues from todo.md entries (optional immediate chain)
+- **`board-pickup`** - Start executing refactoring phases
+
+## Key Features
+
+- **Dimension detection**: Automatically detects structural/logical/visual/migration type
+- **Research-driven**: 4 parallel researchers analyze from multiple angles
+- **Behavioral invariants**: Explicitly defines what must be preserved
+- **Phased execution**: Safe, incremental transformation with rollback points
+- **Parallel lanes**: Identifies independent work streams
+- **Test-first enforcement**: Requires adequate coverage before refactoring
+- **Skill mapping**: Maps phases to appropriate execution skills
+- **Breaking change analysis**: Identifies impact on consumers with migration paths

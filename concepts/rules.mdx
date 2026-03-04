@@ -1,0 +1,388 @@
+---
+title: Rules
+description: Coding standards and patterns that guide agent behavior across all development tasks
+---
+
+Rules define coding standards, architectural patterns, and quality requirements that guide agent behavior. hatch3r includes 22 rules organized by category, with configurable scope to control when each rule applies.
+
+## Rule Structure
+
+Each rule is defined in `/.agents/rules/` as a markdown file with frontmatter:
+
+```yaml
+---
+id: hatch3r-code-standards
+type: rule
+description: TypeScript strict mode, naming conventions, function length limits
+scope: always  # or: on-request, contextual
+---
+```
+
+### Scope Levels
+
+- **`always`**: Applied to every task in every context. Included in all subagent prompts.
+- **`on-request`**: Applied only when explicitly invoked by user or relevant to task area.
+- **`contextual`**: Applied when task area/labels match the rule's domain.
+
+## The 22 Rules
+
+### Mandatory Rules (scope: always)
+
+<AccordionGroup>
+  <Accordion title="hatch3r-agent-orchestration" icon="sitemap">
+    **Scope**: `always`
+    
+    **Enforces**: Mandatory agent delegation, skill loading, and subagent usage for ALL tasks
+    
+    **Universal Sub-Agent Pipeline**:
+    - **Phase 1 — Research**: Spawn `hatch3r-researcher` (skip only for trivial single-line edits)
+    - **Phase 2 — Implement**: Spawn `hatch3r-implementer` (one per task, never implement inline)
+    - **Phase 3 — Quality**: Spawn specialists (reviewer, test-writer, security-auditor always; docs-writer evaluated; others conditional)
+    
+    **Applies to**: Board-pickup, workflow command, plain chat, issue references, natural language requests
+    
+    **Agent Roster**: Defines when to spawn each of the 15 agents
+    
+    **Subagent Protocol**: Use `subagent_type: "generalPurpose"`, include scope: always rules, launch maximum parallelism
+    
+    See [Sub-Agentic Architecture](/concepts/sub-agentic-architecture) for details.
+  </Accordion>
+  
+  <Accordion title="hatch3r-code-standards" icon="file-code">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - TypeScript strict mode enabled
+    - Naming: `camelCase` (vars/functions), `PascalCase` (types/classes), `SCREAMING_SNAKE` (constants)
+    - Function length: max 50 lines (extract beyond that)
+    - File length: max 300 lines (split into modules beyond that)
+    - No `any` types (use `unknown` or proper types)
+    - Explicit return types for public functions
+  </Accordion>
+  
+  <Accordion title="hatch3r-error-handling" icon="triangle-exclamation">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - Structured error hierarchy with typed error codes
+    - Exponential backoff for retries (2^n * 100ms, max 5 attempts)
+    - Correlation IDs for distributed tracing
+    - No silent failures (log or propagate)
+    - User-facing errors include actionable messages
+  </Accordion>
+  
+  <Accordion title="hatch3r-testing" icon="flask">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - Deterministic tests (no random data, no flaky tests)
+    - Isolated tests (no shared state between tests)
+    - Fast tests (unit tests < 100ms, integration < 1s)
+    - Clear naming: `should_{behavior}_when_{condition}`
+    - Regression coverage for every bug fix
+    - No network in unit tests (mock external services)
+    - No `any` in test files
+  </Accordion>
+  
+  <Accordion title="hatch3r-tooling-hierarchy" icon="layer-group">
+    **Scope**: `always`
+    
+    **Enforces priority order for knowledge sources**:
+    1. **Project docs**: `docs/specs/`, `docs/adr/`, `README.md` (canonical truth)
+    2. **Codebase exploration**: Grep, glob, read source code
+    3. **Library docs**: Context7 MCP (`resolve-library-id` → `query-docs`)
+    4. **Web research**: Brave Search MCP for current info, CVEs, breaking changes
+    
+    **GitHub CLI-first**: Use `gh` CLI over GitHub MCP for issues, PRs, code search
+    
+    **Browser verification**: Use Playwright MCP for UI changes (when and how)
+  </Accordion>
+  
+  <Accordion title="hatch3r-learning-consult" icon="book-open">
+    **Scope**: `always`
+    
+    **Enforces**: Consult project learnings before implementation
+    
+    **When**:
+    1. Check if `/.agents/learnings/` exists
+    2. Scan for learnings matching issue area or tech stack
+    3. Read `## Applies When` section
+    4. Include relevant learnings (especially `pitfall` category) in context
+    
+    **Skip**: If no learnings directory exists
+  </Accordion>
+</AccordionGroup>
+
+### API & Architecture Rules
+
+<AccordionGroup>
+  <Accordion title="hatch3r-api-design" icon="network-wired">
+    **Scope**: `contextual` (when API changes)
+    
+    **Enforces**:
+    - Endpoint versioning (`/v1/`, `/v2/`)
+    - Request validation with structured error responses
+    - Idempotency keys for write operations
+    - Auth enforcement (no open endpoints without explicit approval)
+    - CORS and CSP headers
+    - Pagination for list endpoints (cursor-based preferred)
+    - Webhook security (signature verification)
+    - Rate limiting configuration
+  </Accordion>
+  
+  <Accordion title="hatch3r-component-conventions" icon="cube">
+    **Scope**: `contextual` (when UI changes)
+    
+    **Enforces**:
+    - Component structure: props/state/effects/render
+    - Typed props and emits
+    - Design tokens for colors, spacing, typography (no hardcoded values)
+    - WCAG AA accessibility (keyboard nav, ARIA, color contrast)
+    - Loading/error/empty states for all async components
+    - Form UX: validation, error messages, submission feedback
+    - 60fps render target (use React DevTools Profiler)
+  </Accordion>
+  
+  <Accordion title="hatch3r-migrations" icon="database">
+    **Scope**: `contextual` (when database changes)
+    
+    **Enforces**:
+    - Backward-compatible schema changes (add columns, never drop immediately)
+    - Idempotent migration scripts (safe to re-run)
+    - Rollback plans for every migration
+    - Deploy-then-migrate ordering (deploy code that supports old + new schema, then migrate)
+    - Data migrations in separate transactions from schema changes
+  </Accordion>
+  
+  <Accordion title="hatch3r-feature-flags" icon="flag">
+    **Scope**: `contextual` (when feature flags used)
+    
+    **Enforces**:
+    - Flag naming: `FF_AREA_FEATURE` (e.g., `FF_CHECKOUT_APPLE_PAY`)
+    - Storage: config service or environment (not hardcoded)
+    - Evaluation: server-side (client receives evaluated result)
+    - Gradual rollout: percentage-based or user-segment targeting
+    - Dependencies: document flag dependencies
+    - Kill switches: always have a disable path
+    - 30-day cleanup deadline after full rollout
+    - Audit: log flag evaluations for analysis
+  </Accordion>
+</AccordionGroup>
+
+### Security & Privacy Rules
+
+<AccordionGroup>
+  <Accordion title="hatch3r-security-patterns" icon="shield">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - Input validation (whitelist, not blacklist)
+    - Output encoding for XSS prevention
+    - Auth enforcement at API/component boundaries
+    - AI/agentic security (LLM prompt injection protection, output validation)
+    - OWASP Top 10 alignment
+    - No secrets in code (use env vars, secret managers)
+    - Least privilege for database rules and IAM
+  </Accordion>
+  
+  <Accordion title="hatch3r-secrets-management" icon="key">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - No secrets in version control (use `.env`, `.env.mcp`, secret managers)
+    - Rotation schedules for API keys and tokens
+    - Separate secrets per environment (dev/staging/prod)
+    - Secret access auditing
+    - Fallback for missing secrets (fail loudly in dev, graceful degradation in prod where safe)
+  </Accordion>
+  
+  <Accordion title="hatch3r-data-classification" icon="tag">
+    **Scope**: `contextual` (when handling user data)
+    
+    **Enforces**:
+    - Data classification: Public, Internal, Confidential, Restricted
+    - PII handling: anonymization, encryption at rest
+    - Retention policies per data class
+    - Access control per data class
+    - No PII in logs or error messages
+    - GDPR/CCPA compliance (right to deletion, data portability)
+  </Accordion>
+</AccordionGroup>
+
+### Observability & Performance Rules
+
+<AccordionGroup>
+  <Accordion title="hatch3r-observability" icon="chart-line">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - Structured JSON logging (no unstructured console.log)
+    - OpenTelemetry for distributed tracing
+    - SLO/SLI definitions for critical paths
+    - Distributed tracing with correlation IDs
+    - Alerting thresholds and escalation
+    - Dashboards for key metrics
+    - No PII in logs
+    - Log levels: DEBUG, INFO, WARN, ERROR, FATAL
+  </Accordion>
+  
+  <Accordion title="hatch3r-performance-budgets" icon="gauge">
+    **Scope**: `contextual` (when performance-sensitive)
+    
+    **Enforces**:
+    - Core Web Vitals: LCP < 2.5s, FID < 100ms, CLS < 0.1
+    - API latency: p50 < 200ms, p95 < 500ms, p99 < 1s
+    - Database queries: < 50ms for simple, < 200ms for complex
+    - Bundle size: main bundle < 200kb gzipped
+    - Enforcement: CI fails on budget violations
+    - Measurement: Real User Monitoring (RUM) + synthetic tests
+  </Accordion>
+</AccordionGroup>
+
+### UI/UX Rules
+
+<AccordionGroup>
+  <Accordion title="hatch3r-accessibility-standards" icon="universal-access">
+    **Scope**: `contextual` (when UI changes)
+    
+    **Enforces**:
+    - WCAG AA compliance (keyboard nav, ARIA, color contrast 4.5:1)
+    - Focus indicators visible and styled
+    - Screen reader testing for critical flows
+    - Reduced motion support (`prefers-reduced-motion`)
+    - Semantic HTML (headings, landmarks, form labels)
+  </Accordion>
+  
+  <Accordion title="hatch3r-theming" icon="palette">
+    **Scope**: `contextual` (when UI changes)
+    
+    **Enforces**:
+    - Dark mode support via `prefers-color-scheme`
+    - CSS custom properties for theme values
+    - Semantic color tokens (`--color-primary`, not `--blue-500`)
+    - No hardcoded colors (use design tokens)
+    - Theme switching without page reload
+  </Accordion>
+  
+  <Accordion title="hatch3r-i18n" icon="language">
+    **Scope**: `contextual` (when internationalization needed)
+    
+    **Enforces**:
+    - ICU message format for plurals, gender, numbers
+    - RTL support for Arabic, Hebrew
+    - Locale management (user preference, browser default, fallback)
+    - No hardcoded strings in UI code
+    - Date/time/number formatting via `Intl`
+    - Translation keys: `{area}.{feature}.{element}` (e.g., `checkout.payment.submit-button`)
+  </Accordion>
+  
+  <Accordion title="hatch3r-browser-verification" icon="browser">
+    **Scope**: `contextual` (when UI changes)
+    
+    **Enforces when and how to verify UI changes via Playwright MCP**:
+    - Dev server lifecycle (start if not running)
+    - Navigation to affected page
+    - Interaction with changed elements
+    - Visual regression checks
+    - Screenshot evidence for PRs
+    - Browser console error checks
+  </Accordion>
+</AccordionGroup>
+
+### Process Rules
+
+<AccordionGroup>
+  <Accordion title="hatch3r-git-conventions" icon="code-branch">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - Branch naming: `{type}/{short-description}` (e.g., `feat/dark-mode`, `fix/login-bug`)
+    - Commit messages: `{type}: {description} (#{issue})` (e.g., `feat: add dark mode toggle (#42)`)
+    - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+    - Merge strategy: squash merge to main/master
+    - No force push to shared branches
+    - No commits directly to main/master
+  </Accordion>
+  
+  <Accordion title="hatch3r-dependency-management" icon="box">
+    **Scope**: `always`
+    
+    **Enforces**:
+    - Lockfile hygiene (commit `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`)
+    - New dependencies require justification
+    - CVE patching timelines: 48h for critical, 1 week for high, 1 month for medium
+    - Bundle size impact assessment for new packages
+    - Audit before merging (`npm audit`, `yarn audit`)
+  </Accordion>
+  
+  <Accordion title="hatch3r-ci-cd" icon="circle-check">
+    **Scope**: `contextual` (when CI/CD changes)
+    
+    **Enforces**:
+    - All PRs require passing CI
+    - Test coverage gates (min 80% for new code)
+    - Lint and typecheck as separate CI jobs
+    - Deployment gates (staging → prod requires manual approval)
+    - Rollback automation for failed deployments
+  </Accordion>
+</AccordionGroup>
+
+## Rule Application
+
+Rules are applied based on scope:
+
+1. **`scope: always`**: Automatically included in all agent contexts and subagent prompts
+2. **`scope: contextual`**: Applied when task area/labels match the rule's domain
+3. **`scope: on-request`**: Applied only when explicitly invoked
+
+### In Subagent Prompts
+
+When spawning subagents, include all `scope: always` rules:
+
+```markdown
+Follow the hatch3r-implementer agent protocol.
+
+Apply these rules:
+- hatch3r-agent-orchestration
+- hatch3r-code-standards
+- hatch3r-error-handling
+- hatch3r-testing
+- hatch3r-tooling-hierarchy
+- hatch3r-security-patterns
+- hatch3r-observability
+- hatch3r-git-conventions
+- hatch3r-dependency-management
+```
+
+## Rule Customization
+
+Override rule behavior per project using `.hatch3r/rules/{id}.customize.yaml`:
+
+```yaml
+disabled: false
+additionalConstraints: |
+  For this project, function length max is 30 lines (not 50)
+  due to legacy codebase conventions.
+exceptions:
+  - path: "src/legacy/**"
+    reason: "Legacy code exempt from strict mode requirement"
+```
+
+See the `rule-customize` command for interactive configuration.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Learn how agents enforce rules during implementation
+  </Card>
+  <Card title="Skills" icon="wand-magic-sparkles" href="/concepts/skills">
+    See how skills compose rules into workflows
+  </Card>
+  <Card title="Customization" icon="sliders" href="/customize/rules">
+    Configure per-rule behavior for your project
+  </Card>
+  <Card title="Agent Orchestration" icon="sitemap" href="/concepts/sub-agentic-architecture">
+    Deep dive into the mandatory sub-agent pipeline
+  </Card>
+</CardGroup>

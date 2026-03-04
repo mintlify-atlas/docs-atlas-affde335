@@ -1,0 +1,204 @@
+---
+title: Feature Plan
+description: Plan a single feature in depth using parallel researchers to produce spec, ADRs, and board-ready epic
+---
+
+Take a single feature idea and produce complete feature specification, architectural decisions, and structured todo.md entries ready for board-fill.
+
+## Purpose
+
+Transform a feature idea into actionable implementation plan:
+- Feature specification with requirements and acceptance criteria
+- Sub-task breakdown with effort estimates and dependencies
+- Architectural decisions (ADRs) when needed
+- Board-ready epic with sub-items for GitHub issues
+- Risk assessment and mitigation strategies
+
+## When to Use
+
+- Planning a new feature before implementation
+- Breaking down a large feature into sub-tasks
+- Documenting a feature for team alignment
+- Assessing effort and dependencies before committing
+- Creating a feature spec for stakeholder review
+- Preparing board-ready work items
+
+## What It Generates
+
+- **Feature Spec** (`docs/specs/{NN}_{feature-slug}.md`) - Requirements, sub-features, architecture, dependencies, risks
+- **ADRs** (`docs/adr/{NNNN}_{decision}.md`) - Architectural decisions for the feature (if needed)
+- **todo.md entries** - Epic + sub-items in board-fill format
+
+## Sub-Agent Architecture
+
+Spawns 4 parallel researcher sub-agents using the Task tool:
+
+<Steps>
+  <Step title="Codebase Impact Analyzer">
+    Maps affected files, modules, integration points, coupling, and existing patterns using the `codebase-impact` researcher mode.
+  </Step>
+  
+  <Step title="Feature Design Researcher">
+    Breaks feature into sub-tasks, user stories, acceptance criteria, edge cases, and effort estimates using the `feature-design` researcher mode.
+  </Step>
+  
+  <Step title="Architecture Researcher">
+    Designs data model, API contracts, component design, and identifies ADR candidates using the `architecture` researcher mode.
+  </Step>
+  
+  <Step title="Risk Assessment Researcher">
+    Identifies technical risks, security concerns, performance impacts, breaking changes, and common pitfalls using the `risk-assessment` researcher mode.
+  </Step>
+</Steps>
+
+## Workflow
+
+<Steps>
+  <Step title="Gather Feature Description">
+    Collects feature name, goal, target personas, and constraints. Can extract from existing spec, PRD, or GitHub issue.
+  </Step>
+  
+  <Step title="Load Project Context">
+    Reads existing specs, ADRs, todo.md, related GitHub issues, and relevant learnings from `/.agents/learnings/`.
+  </Step>
+  
+  <Step title="Spawn Parallel Researchers">
+    Launches all 4 researchers concurrently with feature brief and project context. Each follows hatch3r-researcher agent protocol.
+  </Step>
+  
+  <Step title="Synthesize & Review Research">
+    Presents merged summary with affected files, sub-tasks, effort, ADRs needed, and risks. Highlights conflicts between researchers.
+  </Step>
+  
+  <Step title="Generate Feature Spec">
+    Creates feature specification with scope, personas, requirements, sub-features, architecture, dependencies, edge cases, and risks.
+  </Step>
+  
+  <Step title="Generate ADRs">
+    Creates architectural decision records for significant design choices (if applicable).
+  </Step>
+  
+  <Step title="Generate todo.md Entries">
+    Produces epic-level entry with sub-items, or single standalone entry for small features. Determines priority based on research.
+  </Step>
+  
+  <Step title="Write Files">
+    After user confirmation, writes feature spec, ADRs (if any), and updates todo.md. Notes glossary updates if needed.
+  </Step>
+</Steps>
+
+## Feature Spec Structure
+
+```markdown
+# Feature Name
+
+## Overview
+What the feature does and why it's needed
+
+## Scope
+### In Scope
+- What's included
+### Out of Scope
+- What's explicitly excluded
+
+## Personas Affected
+| Persona | Impact | Key Flows |
+
+## Requirements
+| Req ID | Requirement | Priority | Source |
+
+## Sub-Features
+| # | Sub-Feature | User Story | Acceptance Criteria | Effort |
+
+## Architecture
+- Data Model Changes
+- API / Interface Contracts
+- Component Design
+
+## Dependencies
+| Depends On | Type | Status | Notes |
+
+## Edge Cases
+- Edge case: expected behavior
+
+## Risks & Mitigations
+| Risk | Severity | Mitigation |
+
+## Implementation Order
+1. Task (prerequisite)
+2. Task (depends on 1)
+3. Task + Task (parallel)
+```
+
+## Examples
+
+### Real-time Collaboration Feature
+```markdown
+Feature: Real-time collaborative editing
+Goal: Multiple users editing same document simultaneously
+Personas: Content creators, team collaborators
+
+Researchers find:
+- Affected: 8 files (editor, sync, state management)
+- Sub-tasks: 5 (WebSocket setup, CRDT implementation, conflict resolution, presence, testing)
+- Effort: XL (2 weeks)
+- ADRs: 1 (CRDT library choice: Yjs vs Automerge)
+- Risks: 3 high (network partitions, concurrent edits, performance)
+
+Generates:
+- Feature spec with CRDT architecture, presence protocol
+- ADR comparing Yjs (chosen) vs Automerge
+- todo.md epic with 5 sub-items (P1 priority)
+```
+
+### Search Feature
+```markdown
+Feature: Full-text search across content
+Goal: Users find content quickly by keyword
+Personas: All users
+
+Researchers find:
+- Affected: 4 files (API, database, UI)
+- Sub-tasks: 3 (indexing, search endpoint, search UI)
+- Effort: M (3 days)
+- ADRs: 1 (Search provider: Elasticsearch vs PostgreSQL FTS)
+- Risks: 1 medium (index rebuild time)
+
+Generates:
+- Feature spec with indexing strategy, query optimization
+- ADR comparing Elasticsearch (future) vs PostgreSQL FTS (MVP)
+- todo.md with 3 items (P2 priority)
+```
+
+## When ADRs Are Generated
+
+ADRs are created when the architecture researcher identifies:
+- Technology/library choice with trade-offs (e.g., state management library)
+- Pattern introduction (e.g., new error handling approach)
+- API contract design (e.g., REST vs GraphQL endpoint)
+- Data model changes (e.g., schema migration strategy)
+- Integration approach (e.g., third-party service selection)
+
+## Priority Determination
+
+Feature priority recommended based on:
+- **P0**: Revenue-blocking, security fix, compliance requirement
+- **P1**: Core value delivery, conversion-critical, user-requested top feature
+- **P2**: Secondary features, quality improvements, retention enhancements
+- **P3**: Nice-to-have, polish, upsell features
+
+## Cross-Command Integration
+
+After completion:
+- **`board-fill`** - Create GitHub issues from todo.md entries (optional immediate chain)
+- **`board-pickup`** - Start implementing the feature
+
+## Key Features
+
+- **Research-driven**: 4 parallel researchers analyze from multiple angles
+- **Conflict detection**: Highlights researcher disagreements before finalizing
+- **Effort estimation**: Based on affected files and complexity analysis
+- **Dependency mapping**: Identifies prerequisites (technical and feature)
+- **Risk assessment**: Proactive identification of pitfalls and mitigations
+- **Board-ready output**: Epic + sub-items in todo.md format
+- **Glossary integration**: References existing stable IDs, notes new entities

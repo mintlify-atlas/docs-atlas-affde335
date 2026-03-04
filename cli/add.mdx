@@ -1,0 +1,319 @@
+---
+title: "hatch3r add"
+description: "Install community packs (coming soon)"
+---
+
+## Overview
+
+The `hatch3r add` command will allow you to install community-contributed packs that extend your agent setup with specialized configurations, agents, skills, and rules.
+
+<Warning>
+  This command is not yet implemented. It's planned for a future release.
+</Warning>
+
+## Planned Usage
+
+```bash
+hatch3r add [pack]
+```
+
+## What It Will Do
+
+When implemented, the add command will:
+
+1. **Browse community packs** - If no pack specified, show available packs
+2. **Install pack** - Download and integrate pack into your `.agents/` directory
+3. **Merge configurations** - Safely merge pack content with existing setup
+4. **Update manifest** - Track installed packs in `.agents/hatch.json`
+5. **Sync outputs** - Generate tool-specific configs for new content
+
+## Planned Pack Types
+
+### Language Packs
+
+Language-specific configurations:
+
+```bash
+hatch3r add typescript-advanced
+hatch3r add python-ml
+hatch3r add rust-systems
+hatch3r add go-backend
+```
+
+**Includes:**
+- Language-specific rules
+- Linting and formatting agents
+- Testing strategies
+- Best practices
+
+### Framework Packs
+
+Framework-specific setups:
+
+```bash
+hatch3r add nextjs
+hatch3r add django
+hatch3r add rails
+hatch3r add spring-boot
+```
+
+**Includes:**
+- Framework conventions
+- Architecture patterns
+- Testing approaches
+- Deployment configs
+
+### Domain Packs
+
+Domain-specific expertise:
+
+```bash
+hatch3r add security-audit
+hatch3r add performance-optimization
+hatch3r add accessibility
+hatch3r add devops
+```
+
+**Includes:**
+- Specialized agents
+- Domain knowledge
+- Validation rules
+- Checklists
+
+### Tool Packs
+
+Tool-specific enhancements:
+
+```bash
+hatch3r add docker-compose
+hatch3r add kubernetes
+hatch3r add terraform
+hatch3r add github-actions
+```
+
+**Includes:**
+- Tool-specific agents
+- Configuration helpers
+- Best practices
+- Templates
+
+## Planned Features
+
+### Interactive Browser
+
+```bash
+hatch3r add
+```
+
+Will show:
+- Available packs
+- Pack descriptions
+- Compatibility info
+- Installation stats
+- Community ratings
+
+### Pack Info
+
+```bash
+hatch3r add --info typescript-advanced
+```
+
+Will display:
+- Pack description
+- Included content
+- Requirements
+- Compatibility
+- Version info
+
+### Version Management
+
+```bash
+hatch3r add typescript-advanced@1.2.0
+hatch3r add typescript-advanced@latest
+```
+
+### Multiple Packs
+
+```bash
+hatch3r add nextjs typescript-advanced testing-pro
+```
+
+### Update Packs
+
+```bash
+hatch3r add --update typescript-advanced
+hatch3r add --update-all
+```
+
+## Expected Pack Structure
+
+Community packs will likely include:
+
+```
+pack-name/
+├── pack.json           # Pack metadata
+├── agents/             # Custom agents
+├── skills/             # Skills
+├── rules/              # Rules
+├── prompts/            # Prompts
+├── commands/           # Commands
+└── README.md           # Documentation
+```
+
+## Planned Installation Process
+
+1. **Download pack** from registry
+2. **Validate compatibility** with current setup
+3. **Show preview** of changes
+4. **Confirm installation**
+5. **Merge content** into `.agents/`
+6. **Update manifest** to track pack
+7. **Run sync** to generate outputs
+8. **Validate** final state
+
+## Current Status
+
+Running the command now shows:
+
+```
+  Coming soon!
+  The `add` command will allow installing community packs.
+  Follow https://github.com/hatch3r for updates.
+```
+
+## Future Options
+
+### Planned Flags
+
+<ParamField path="--info" type="boolean">
+  Show pack information without installing
+</ParamField>
+
+<ParamField path="--dry-run" type="boolean">
+  Preview changes without installing
+</ParamField>
+
+<ParamField path="--yes" type="boolean">
+  Skip confirmation prompts
+</ParamField>
+
+<ParamField path="--update" type="boolean">
+  Update an already installed pack
+</ParamField>
+
+<ParamField path="--update-all" type="boolean">
+  Update all installed packs
+</ParamField>
+
+<ParamField path="--remove" type="boolean">
+  Remove an installed pack
+</ParamField>
+
+## Creating Community Packs
+
+When available, pack creation will involve:
+
+1. **Create pack structure** following conventions
+2. **Add pack metadata** in `pack.json`
+3. **Document usage** in README
+4. **Test installation** locally
+5. **Submit to registry** via GitHub
+6. **Maintain versions** as needed
+
+## Pack Registry
+
+Planned registry features:
+
+- **Browse packs** by category, language, framework
+- **Search** by keywords
+- **View ratings** and reviews
+- **Check compatibility** with your setup
+- **Track updates** to installed packs
+
+## Example Use Cases
+
+### New Project Setup
+
+```bash
+# Initialize with base setup
+hatch3r init
+
+# Add framework pack
+hatch3r add nextjs
+
+# Add testing pack
+hatch3r add testing-pro
+
+# Add language pack
+hatch3r add typescript-advanced
+```
+
+### Enhance Existing Project
+
+```bash
+# Current setup
+hatch3r status
+
+# Add security pack
+hatch3r add security-audit
+
+# Add performance pack
+hatch3r add performance-optimization
+
+# Sync and validate
+hatch3r sync
+hatch3r validate
+```
+
+### Team Standardization
+
+```bash
+# Install company pack
+hatch3r add acme-company-standards
+
+# Install project-specific pack
+hatch3r add acme-backend-api
+```
+
+## Timeline
+
+The add command is planned for a future release. Follow development:
+
+- GitHub: https://github.com/hatch3r
+- Discussions: https://github.com/hatch3r/hatch3r/discussions
+- Roadmap: Check repo for milestones
+
+## Alternative: Manual Installation
+
+Until `add` is available, install community content manually:
+
+```bash
+# Clone pack repo
+git clone https://github.com/community/typescript-pack
+
+# Copy to .agents/
+cp -r typescript-pack/agents/* .agents/agents/
+cp -r typescript-pack/rules/* .agents/rules/
+
+# Sync
+hatch3r sync
+
+# Validate
+hatch3r validate
+```
+
+## Get Notified
+
+To be notified when this feature launches:
+
+1. Star the repo: https://github.com/hatch3r/hatch3r
+2. Watch for releases
+3. Join discussions
+4. Follow on social media
+
+## See Also
+
+- [init](/cli/init) - Initialize hatch3r
+- [sync](/cli/sync) - Sync after manual pack installation
+- [validate](/cli/validate) - Validate pack content
+- [update](/cli/update) - Update core templates

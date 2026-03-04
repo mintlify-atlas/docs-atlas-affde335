@@ -1,0 +1,166 @@
+---
+title: Project Spec
+description: Generate complete business and technical project documentation from vision using parallel researcher sub-agents
+---
+
+Generate comprehensive project documentation across two dimensions: business strategy and technical architecture. Takes a project vision and produces complete specs, ADRs, and a ready-to-use todo.md.
+
+## Purpose
+
+Transform a project idea into actionable documentation with:
+- Business specifications (model, competitive analysis, GTM strategy, production blueprint)
+- Technical specifications (glossary, overview, per-module specs)
+- Architectural Decision Records (ADRs)
+- Board-ready todo.md for `board-fill`
+- Optional AGENTS.md for AI coding tools
+
+## When to Use
+
+- Starting a new greenfield project
+- Documenting an existing project vision
+- Creating comprehensive specs before development
+- Establishing business and technical foundation
+- Preparing for investor/stakeholder presentations
+
+## What It Generates
+
+### Business Specs (`docs/specs/business/`)
+- **Business Glossary** - Stable IDs for business entities, domain terms, events, and metrics
+- **Business Overview** - Business model, market context, personas, and KPIs
+- **Domain Specs** - Business rules, user journeys, revenue relevance per domain
+- **Competitive Analysis** - Deep research on competitors (features, pricing, positioning)
+- **GTM Strategy** - Go-to-market plan and launch playbook
+- **Production Blueprint** - Infrastructure, scaling, observability, cost model
+
+### Technical Specs (`docs/specs/technical/`)
+- **Technical Glossary** - Stable IDs for entities, events, and modules
+- **Technical Overview** - Architecture style, stack summary, constraints
+- **Module Specs** - Per-module requirements, features, dependencies, invariants
+
+### Other Artifacts
+- **ADRs** (`docs/adr/`) - Architectural decisions with alternatives and consequences
+- **todo.md** - Prioritized backlog with `[BIZ]`/`[TECH]`/`[BOTH]` tags
+- **AGENTS.md** - Project README for AI coding tools (optional)
+- **.hatch3r-session.json** - Session context for downstream commands
+
+## Sub-Agent Architecture
+
+Spawns 7 parallel researcher sub-agents using the Task tool:
+
+<Steps>
+  <Step title="Stack Researcher">
+    Analyzes requirements and company stage to recommend technology stack calibrated to stage. Uses Context7 MCP for framework documentation and web search for ecosystem trends.
+  </Step>
+  
+  <Step title="Feature Researcher">
+    Breaks vision into features organized by domain/module with user stories, acceptance criteria, complexity estimates, and priority ordering based on business model.
+  </Step>
+  
+  <Step title="Architecture Researcher">
+    Designs system architecture based on vision, constraints, and company stage. Produces component map, data flow, integration points, and ADR candidates.
+  </Step>
+  
+  <Step title="Pitfalls Researcher">
+    Identifies technical and business risks, anti-patterns, security concerns, scalability bottlenecks, and domain-specific pitfalls with mitigation strategies.
+  </Step>
+  
+  <Step title="UX Researcher">
+    Analyzes user experience: personas, user journeys, interaction patterns, accessibility requirements, responsive strategy, and competitive UX analysis.
+  </Step>
+  
+  <Step title="Business Model & Market Researcher">
+    Deep web research on competitors, market size (TAM/SAM/SOM), business model validation, monetization benchmarks, GTM patterns, and regulatory landscape.
+  </Step>
+  
+  <Step title="Production & Scale Researcher">
+    Designs production infrastructure calibrated to stage: hosting, scaling strategy, observability, reliability, security baseline, cost modeling, and DevOps pipeline.
+  </Step>
+</Steps>
+
+## Workflow
+
+<Steps>
+  <Step title="Gather Project Vision">
+    Collects project name, vision, target platforms, personas, constraints, scope selection, company stage assessment, and business context (model, competitors, KPIs, GTM status).
+  </Step>
+  
+  <Step title="Spawn Parallel Researchers">
+    Launches all 7 researchers concurrently with full vision summary, business context, and company stage. Each produces structured markdown output.
+  </Step>
+  
+  <Step title="Review Research Outputs">
+    Presents merged summary with business, technical, and production dimensions. Highlights conflicts between researchers and recommends resolutions.
+  </Step>
+  
+  <Step title="Generate Dual-Lens Specs">
+    Creates business and technical specs in separate directories. Business specs cross-reference technical specs using stable IDs from glossaries.
+  </Step>
+  
+  <Step title="Generate ADRs">
+    Creates architectural decision records for both technical and business-scope decisions identified by researchers.
+  </Step>
+  
+  <Step title="Generate todo.md">
+    Produces board-ready backlog with items tagged as `[BIZ]`, `[TECH]`, or `[BOTH]`, referencing source specs and including priority ordering.
+  </Step>
+  
+  <Step title="Write Files">
+    After user confirmation, writes all specs, ADRs, todo.md, and session context. Optionally generates AGENTS.md.
+  </Step>
+</Steps>
+
+## Stage-Adaptive Depth
+
+Recommendations are calibrated to company stage:
+
+- **Pre-revenue / Early-revenue**: MVP-focused specs. Emphasizes speed-to-market, core user flows, minimal viable infrastructure. Skips enterprise features.
+- **Growth**: Scaling-aware specs. Emphasizes performance, horizontal scaling, monitoring, technical debt prevention.
+- **Scale / Enterprise**: Production-hardened specs. Emphasizes SLA readiness, disaster recovery, governance, audit trails, multi-region.
+
+## Examples
+
+### SaaS Project Spec
+```markdown
+Vision: A collaborative design tool for remote teams
+Platform: Web app (React + Next.js)
+Personas: Designers (create), Stakeholders (review), Developers (handoff)
+Model: Freemium SaaS, tiered subscription
+Stage: Pre-revenue
+
+Generates:
+- Business specs: Freemium conversion strategy, competitor analysis (Figma, Sketch)
+- Technical specs: Real-time collaboration module, file storage, permission system
+- ADRs: WebSocket vs WebRTC, storage architecture
+- todo.md: P0 items for MVP launch, P1 for paid tier features
+```
+
+### Marketplace Project Spec
+```markdown
+Vision: Two-sided marketplace for freelance services
+Platform: Web + mobile (React Native)
+Personas: Freelancers (supply), Clients (demand), Platform admins
+Model: Transactional (commission-based)
+Stage: Seed-funded
+
+Generates:
+- Business specs: Trust & safety, payment flow, marketplace dynamics
+- Technical specs: Matching algorithm, escrow system, rating/review module
+- ADRs: Payment processor selection, fraud detection approach
+- Production blueprint: Scaling to 10K active users, cost model
+```
+
+## Cross-Command Integration
+
+After completion, recommended next steps:
+- **`roadmap`** - Generate phased roadmap from specs
+- **`board-fill`** - Create GitHub issues from todo.md
+- **`codebase-map`** - For brownfield projects (alternative starting point)
+
+## Key Features
+
+- **Dual-lens approach**: Separate business and technical specs with cross-references
+- **Stage-adaptive**: Recommendations calibrated to company maturity
+- **Research-driven**: Uses web search and Context7 MCP for current data
+- **Conflict resolution**: Highlights researcher disagreements before finalizing
+- **Board-ready output**: todo.md format compatible with `board-fill`
+- **Session continuity**: Saves context for downstream commands

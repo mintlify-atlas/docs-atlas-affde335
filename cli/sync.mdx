@@ -1,0 +1,199 @@
+---
+title: "hatch3r sync"
+description: "Re-generate tool outputs from canonical .agents/ state"
+---
+
+## Overview
+
+The `hatch3r sync` command re-generates all tool-specific configuration files from your canonical `.agents/` directory. This is useful when you've modified files in `.agents/` and want to propagate those changes to your configured tools.
+
+## Usage
+
+```bash
+hatch3r sync
+```
+
+No options required - sync reads your configuration from `.agents/hatch.json`.
+
+## What It Does
+
+The sync command:
+
+1. **Reads your manifest** - Loads `.agents/hatch.json` to determine configured tools
+2. **Syncs AGENTS.md** - Updates root-level `AGENTS.md` with managed content
+3. **Updates canonical file** - Ensures `.agents/AGENTS.md` is current
+4. **Regenerates tool outputs** - For each configured tool:
+   - Reads from `.agents/` canonical source
+   - Generates tool-specific format
+   - Safely writes to managed files (preserves user content)
+5. **Updates MCP environment** - If MCP is enabled, ensures `.env.mcp` has required variables
+
+## When to Use Sync
+
+Run `hatch3r sync` when you:
+
+- Modified files in `.agents/` directory
+- Added new agents, skills, or rules
+- Changed MCP server configuration
+- Updated `.agents/hatch.json` manually
+- Want to ensure all tools have the latest configuration
+- See "drifted" status in `hatch3r status`
+
+## Managed Files
+
+Sync updates files tracked in your manifest's `managedFiles` array:
+
+- `AGENTS.md` - Root documentation
+- `.cursorrules` - Cursor IDE rules (if Cursor enabled)
+- `CLAUDE.md` - Claude Code instructions (if Claude enabled)
+- `.windsurfrules` - Windsurf rules (if Windsurf enabled)
+- `.copilot-instructions.md` - GitHub Copilot instructions (if Copilot enabled)
+- `opencode.json` - OpenCode configuration (if OpenCode enabled)
+- Tool-specific agent files in `.vscode/`, `.claude/`, etc.
+
+## Safe Write Behavior
+
+Sync uses smart merging to preserve your content:
+
+- **Managed blocks** - Updates content between `<!-- BEGIN MANAGED -->` and `<!-- END MANAGED -->` markers
+- **User content** - Preserves content outside managed blocks
+- **No markers** - If a file has no markers, prepends the managed block
+- **Unchanged files** - Skips files that are already up to date
+
+## Output
+
+Sync provides detailed progress and results:
+
+```
+[1/4] Syncing AGENTS.md...
+✓ [1/4] AGENTS.md synced
+
+[2/4] Generating cursor output...
+✓ [2/4] cursor output generated
+
+[3/4] Generating claude output...
+✓ [3/4] claude output generated
+
+[4/4] Generating opencode output...
+✓ [4/4] opencode output generated
+
+╭─ Sync complete ───────────────────────────────╮
+│                                               │
+│  + .cursorrules (created)                     │
+│  ~ CLAUDE.md (updated)                        │
+│  = opencode.json (skipped)                    │
+│  + .vscode/hatch3r-agent.md (created)         │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+### Status Icons
+
+- `+` (green) - File created
+- `~` (yellow) - File updated
+- `=` (gray) - File unchanged (skipped)
+
+## Examples
+
+### Basic Sync
+
+```bash
+hatch3r sync
+```
+
+Re-generates all tool outputs from `.agents/`.
+
+### After Modifying Agents
+
+```bash
+# Edit agent definition
+vim .agents/agents/hatch3r-code-reviewer.md
+
+# Sync changes to tools
+hatch3r sync
+```
+
+### After Adding Skills
+
+```bash
+# Add new skill
+cp my-skill.md .agents/skills/
+
+# Regenerate tool configs
+hatch3r sync
+```
+
+### Check Then Sync
+
+```bash
+# See what's out of sync
+hatch3r status
+
+# Sync everything
+hatch3r sync
+```
+
+## MCP Environment Updates
+
+If you have MCP enabled and sync detects new required environment variables:
+
+```
+⚠ New secrets needed in .env.mcp: BRAVE_API_KEY
+ℹ Run this, then start or restart your editor: source .env.mcp
+```
+
+You'll need to:
+
+1. Add the API key to `.env.mcp`
+2. Run `source .env.mcp`
+3. Restart your editor for changes to take effect
+
+## Error Handling
+
+If sync fails for a specific tool:
+
+```
+✗ [2/3] Failed to generate cursor output
+Error: Invalid JSON in .agents/mcp/mcp.json
+```
+
+Sync will:
+- Stop processing immediately
+- Show the error message
+- Exit with code 1
+
+Fix the error and run sync again.
+
+## Prerequisites
+
+- `.agents/hatch.json` must exist (run `hatch3r init` first)
+- Must be run from repository root
+- Canonical `.agents/` directory must be valid
+
+## Workflow Integration
+
+Common workflows:
+
+```bash
+# Modify, validate, sync
+vim .agents/rules/typescript.md
+hatch3r validate
+hatch3r sync
+
+# Bulk update after template changes
+hatch3r update
+hatch3r sync
+
+# Check drift before committing
+hatch3r status
+hatch3r sync
+git add .
+git commit -m "Update agent configuration"
+```
+
+## See Also
+
+- [init](/cli/init) - Initialize hatch3r in your repository
+- [status](/cli/status) - Check sync status before syncing
+- [update](/cli/update) - Update templates then sync
+- [validate](/cli/validate) - Validate before syncing

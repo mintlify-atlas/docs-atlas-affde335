@@ -1,0 +1,145 @@
+---
+title: Core Concepts Overview
+description: Understanding the foundational concepts of hatch3r's agentic coding system
+---
+
+hatch3r is built on a canonical source architecture that generates tool-specific configurations from a single source of truth. This design enables consistent agentic workflows across Cursor, Copilot, Claude Code, OpenCode, Windsurf, and other AI coding tools.
+
+## Architecture
+
+```
+/.agents/              ← Canonical source (tool-agnostic)
+  ├── agents/         ← 15 specialized AI agents
+  ├── skills/         ← 25 composable workflows
+  ├── rules/          ← 22 coding standards and patterns
+  ├── commands/       ← 29 orchestration commands
+  ├── mcp/            ← 5 MCP server configurations
+  ├── AGENTS.md
+  └── hatch.json      ← Manifest
+
+.cursor/              ← Generated (Cursor adapter)
+.github/              ← Generated (Copilot adapter)
+CLAUDE.md             ← Generated (Claude adapter)
+.windsurfrules        ← Generated (Windsurf adapter)
+```
+
+The canonical source in `/.agents/` remains stable across updates. Tool adapters read from this source and generate native configuration files.
+
+## The Five Pillars
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    15 specialized AI agents for code review, testing, security, implementation, and research
+  </Card>
+  <Card title="Skills" icon="wand-magic-sparkles" href="/concepts/skills">
+    25 composable workflows for bugs, features, refactors, releases, and audits
+  </Card>
+  <Card title="Rules" icon="gavel" href="/concepts/rules">
+    22 coding standards covering API design, security, testing, observability, and more
+  </Card>
+  <Card title="Commands" icon="terminal" href="/concepts/commands">
+    29 orchestration commands for board management, planning, audits, and releases
+  </Card>
+  <Card title="MCP Integration" icon="plug" href="/concepts/mcp">
+    5 MCP servers for GitHub, Context7, filesystem, browser automation, and web search
+  </Card>
+</CardGroup>
+
+## Workflow Philosophy
+
+hatch3r follows a **spec-driven, sub-agentic** approach:
+
+1. **Documentation as context**: Structured specs (`docs/specs/`), ADRs (`docs/adr/`), and process docs serve as the primary knowledge source for agents
+2. **Sub-agentic delegation**: Every task is broken down and delegated to specialized sub-agents (researcher → implementer → quality specialists)
+3. **Dependency-aware orchestration**: Commands like `board-pickup` analyze dependency graphs and spawn parallel sub-agents for independent work
+4. **Tooling hierarchy**: Project docs → Codebase exploration → Context7 MCP (library docs) → Web research
+
+## Key Concepts
+
+### Canonical Source
+
+All agents, skills, rules, and commands live in `/.agents/` as markdown files with YAML frontmatter. This canonical source is tool-agnostic and version-controlled.
+
+**Adapters** read the canonical source and generate tool-specific outputs:
+
+- **Cursor**: `.cursor/rules/*.mdc`, `.cursor/agents/*.mdc`, `.cursor/mcp.json`
+- **Copilot**: `.github/copilot-instructions.md`, `.vscode/mcp.json`
+- **Claude Code**: `CLAUDE.md`, `.mcp.json`
+- **OpenCode**: `AGENTS.md`, `opencode.json`
+- **Windsurf**: `.windsurfrules`
+
+See [Adapters](/concepts/adapters) for implementation details.
+
+### Managed Blocks
+
+All hatch3r-generated markdown files use managed blocks:
+
+```markdown
+<!-- HATCH3R:BEGIN -->
+...managed content (updated on sync/update)...
+<!-- HATCH3R:END -->
+
+## My Custom Section
+...never overwritten...
+```
+
+Content outside managed blocks is preserved during `hatch3r sync` and `hatch3r update`.
+
+### Model Selection
+
+Configure AI models per agent via `hatch.json`:
+
+```json
+{
+  "models": {
+    "default": "opus",
+    "agents": {
+      "hatch3r-lint-fixer": "sonnet",
+      "hatch3r-security-auditor": "opus"
+    }
+  }
+}
+```
+
+Resolution order: customization file > manifest per-agent > agent frontmatter > manifest default.
+
+### Board Management
+
+hatch3r includes a complete GitHub Projects V2 integration:
+
+- **board-init**: Create or connect a project board with status fields and label taxonomy
+- **board-fill**: Parse `todo.md`, create issues with dependency analysis and implementation order
+- **board-pickup**: Auto-select next best issue(s), spawn sub-agents, create PRs
+- **board-refresh**: Regenerate board overview dashboard with health metrics
+
+See [Board Management](/concepts/board-management) for the complete workflow.
+
+## Documentation Structure
+
+hatch3r projects follow a three-directory documentation pattern:
+
+```
+docs/
+  specs/        Modular specifications with stable IDs
+  adr/          Architecture Decision Records
+  process/      Process documentation
+```
+
+Agents read these docs to understand project context, conventions, and architectural constraints. The `hatch3r-docs-writer` agent maintains docs in sync with code changes.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Agents" icon="robot" href="/concepts/agents">
+    Learn about the 15 specialized agents and when to use each
+  </Card>
+  <Card title="Understand Skills" icon="wand-magic-sparkles" href="/concepts/skills">
+    Discover the 25 composable workflows for common development tasks
+  </Card>
+  <Card title="Review Rules" icon="gavel" href="/concepts/rules">
+    Study the 22 coding standards that guide agent behavior
+  </Card>
+  <Card title="Master Commands" icon="terminal" href="/concepts/commands">
+    Learn the 29 orchestration commands for planning and execution
+  </Card>
+</CardGroup>

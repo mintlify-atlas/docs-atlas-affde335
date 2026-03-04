@@ -1,0 +1,507 @@
+---
+title: Component Conventions
+description: UI component structure, state patterns, form UX, and accessibility requirements for web applications
+---
+
+# Component Conventions
+
+**Scope:** Conditional (applies to `src/**/*.vue`, `src/**/*.tsx`, `src/**/*.jsx`)  
+**Rule ID:** `hatch3r-component-conventions`
+
+Defines standards for UI component development including structure, naming, styling, state management, form UX, and mandatory accessibility requirements.
+
+## Component Structure
+
+### Framework-Recommended Syntax
+
+```vue
+<!-- Vue: Use <script setup> -->
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import type { UserProfile } from '@/types';
+
+interface Props {
+  user: UserProfile;
+  readonly?: boolean;
+}
+
+interface Emits {
+  (event: 'update:user', user: UserProfile): void;
+  (event: 'delete'): void;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+</script>
+```
+
+```tsx
+// React: Typed functional components
+import { FC } from 'react';
+
+interface UserCardProps {
+  user: UserProfile;
+  readonly?: boolean;
+  onUpdate: (user: UserProfile) => void;
+  onDelete: () => void;
+}
+
+export const UserCard: FC<UserCardProps> = ({
+  user,
+  readonly = false,
+  onUpdate,
+  onDelete,
+}) => {
+  // Component logic
+};
+```
+
+### Typed Props and Events
+
+- Define props with typed interfaces (not PropTypes or runtime validation)
+- Define emits/events with typed interfaces
+- Use TypeScript strict mode — no `any` in component types
+
+### Composables/Hooks Over Mixins
+
+```typescript
+// ✅ Composable (Vue) / Hook (React)
+export function useUserProfile(userId: string) {
+  const profile = ref<UserProfile | null>(null);
+  const loading = ref(false);
+
+  const fetchProfile = async () => {
+    loading.value = true;
+    profile.value = await api.getUser(userId);
+    loading.value = false;
+  };
+
+  return { profile, loading, fetchProfile };
+}
+
+// ❌ Avoid mixins (deprecated in Vue 3, anti-pattern in React)
+```
+
+### State Management
+
+- Use stores (Pinia, Zustand, Redux) for shared state
+- Component-local state stays in the component
+- Never pass stores directly as props — use composables/hooks to access
+
+## Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|----------|
+| Component files | `PascalCase` | `UserProfile.vue`, `QuestPanel.tsx` |
+| Component names | Match file name | `UserProfile`, `QuestPanel` |
+| Props | `camelCase` | `userId`, `isActive` |
+| Events (Vue) | `kebab-case` | `@update:user`, `@item-selected` |
+| Events (React) | `camelCase` | `onUpdateUser`, `onItemSelected` |
+
+## Styling
+
+### Design Tokens
+
+Use the project's design tokens for all styling:
+
+```css
+/* ✅ Use tokens */
+.card {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+}
+
+/* ❌ No hardcoded values */
+.card {
+  background: #ffffff;
+  color: #333333;
+  padding: 16px;
+  border-radius: 8px;
+}
+```
+
+### Styling Approaches
+
+- Prefer utility classes (Tailwind, UnoCSS) or scoped CSS with BEM naming
+- No inline styles except for dynamic values that can't be expressed as classes
+- No hardcoded color values — always use tokens
+
+```vue
+<!-- ✅ Utility classes -->
+<div class="bg-surface text-primary p-4 rounded-md">
+
+<!-- ✅ Scoped CSS with BEM -->
+<style scoped>
+.user-card { }
+.user-card__header { }
+.user-card__body { }
+</style>
+
+<!-- ✅ Dynamic inline styles -->
+<div :style="{ transform: `translateX(${offset}px)` }">
+
+<!-- ❌ Avoid static inline styles -->
+<div style="color: red; padding: 16px;">
+```
+
+## Accessibility (Required)
+
+### Animations and Motion
+
+All animations must respect `prefers-reduced-motion`:
+
+```css
+/* Wrap animations in media query */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-enter-active {
+    transition: opacity 300ms ease;
+  }
+}
+
+/* AND check user setting in component */
+<script setup>
+const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+</script>
+
+<div v-if="!prefersReducedMotion" class="animated">
+```
+
+### Color Contrast
+
+- Text contrast: ≥ 4.5:1 for normal text (WCAG AA)
+- Large text (18px+ or 14px+ bold): ≥ 3:1
+- Verify with automated tools (axe-core, Lighthouse)
+
+### Keyboard Navigation
+
+- All interactive elements must be keyboard focusable
+- Visible focus indicator on all interactive elements
+- Use semantic HTML (`<button>`, `<a>`) before reaching for `<div>` with event handlers
+
+### Dynamic Content
+
+```vue
+<!-- Use aria-live for dynamic updates -->
+<div aria-live="polite" aria-atomic="true">
+  {{ statusMessage }}
+</div>
+
+<!-- Assertive for critical alerts -->
+<div aria-live="assertive">
+  {{ errorMessage }}
+</div>
+```
+
+### High Contrast Mode
+
+- Test components in high contrast mode
+- Ensure information is not conveyed by color alone
+- Use icons, labels, and patterns in addition to color
+
+## State Patterns (Required)
+
+### Loading States
+
+Use skeleton screens, not spinners:
+
+```vue
+<template>
+  <div v-if="loading" class="skeleton">
+    <div class="skeleton-header"></div>
+    <div class="skeleton-body"></div>
+  </div>
+  <div v-else>
+    <h2>{{ user.name }}</h2>
+    <p>{{ user.bio }}</p>
+  </div>
+</template>
+
+<style>
+.skeleton-header,
+.skeleton-body {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-secondary) 25%,
+    var(--color-surface-tertiary) 50%,
+    var(--color-surface-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
+```
+
+**Rules:**
+- Match skeleton layout to loaded content layout
+- Apply shimmer/pulse animation to indicate activity
+- Load content progressively (show available data immediately)
+- Buttons triggering async actions show inline loading indicator and disable
+
+### Error States
+
+```vue
+<template>
+  <div v-if="error" class="error-state">
+    <IconError />
+    <p>{{ error.message }}</p>
+    <button @click="retry">Retry</button>
+  </div>
+</template>
+```
+
+**Rules:**
+- Wrap route-level components in error boundaries
+- Show inline error messages below failed content with retry action
+- Use toast/notification for non-blocking errors (auto-dismiss after 5–8s)
+- Never render blank space — always show fallback with explanation and recovery
+
+### Empty States
+
+```vue
+<template>
+  <div v-if="items.length === 0" class="empty-state">
+    <IllustrationEmpty />
+    <h3>No projects yet</h3>
+    <p>Create your first project to get started</p>
+    <button @click="createProject">Create Project</button>
+  </div>
+</template>
+```
+
+**Rules:**
+- Display illustration or icon with concise, helpful message
+- Include primary action CTA to populate the area
+- Provide contextual guidance or links to docs
+- Differentiate "no data yet" from "no results found" (with clear-filters action)
+
+### Transition States
+
+```typescript
+// Optimistic updates
+const updateUser = async (updates: Partial<User>) => {
+  const previousUser = { ...user.value };
+  user.value = { ...user.value, ...updates };  // Optimistic update
+
+  try {
+    await api.updateUser(user.value.id, updates);
+  } catch (error) {
+    user.value = previousUser;  // Rollback on failure
+    showToast('Failed to update user', { type: 'error' });
+  }
+};
+```
+
+**Rules:**
+- Apply optimistic updates for mutations
+- Roll back on failure with error toast
+- Show pending/saving indicator for in-flight mutations
+- Use stale-while-revalidate patterns (display cached data, update in background)
+
+## Form UX (Required)
+
+### Validation Timing
+
+```typescript
+const validateField = (field: string) => {
+  if (!touched[field]) {
+    return; // Don't validate until user has interacted
+  }
+  // Run validation
+};
+
+// Validate on blur for first interaction
+const handleBlur = (field: string) => {
+  touched[field] = true;
+  validateField(field);
+};
+
+// After first validation, validate on change
+const handleChange = (field: string, value: any) => {
+  formData[field] = value;
+  if (touched[field]) {
+    validateField(field);
+  }
+};
+```
+
+### Error Display
+
+```vue
+<template>
+  <div>
+    <label for="email">Email</label>
+    <input
+      id="email"
+      v-model="email"
+      :aria-invalid="emailError ? 'true' : undefined"
+      :aria-errormessage="emailError ? 'email-error' : undefined"
+      @blur="validateEmail"
+    />
+    <p v-if="emailError" id="email-error" class="error">
+      {{ emailError }}
+    </p>
+  </div>
+</template>
+```
+
+**Rules:**
+- Show inline error messages directly below field
+- Link via `aria-errormessage` and `aria-invalid="true"`
+- Provide error summary at top of form for screen readers
+- Use clear visual error indicator (red border + icon + text)
+- Never rely on color alone
+
+### Field Patterns
+
+```vue
+<fieldset>
+  <legend>Shipping Address</legend>
+  <label for="street">Street</label>
+  <input id="street" v-model="address.street" />
+  
+  <label for="city">City</label>
+  <input id="city" v-model="address.city" />
+</fieldset>
+```
+
+**Rules:**
+- Group related fields with `<fieldset>` and `<legend>`
+- Use progressive disclosure for complex forms (expandable sections, multi-step)
+- Autofocus first input on form mount
+- Tab order follows visual layout order
+- Never use positive `tabindex` values
+
+### Submit Behavior
+
+```vue
+<button
+  type="submit"
+  :disabled="hasErrors || isSubmitting"
+  :aria-busy="isSubmitting"
+>
+  <LoadingSpinner v-if="isSubmitting" />
+  {{ isSubmitting ? 'Submitting...' : 'Submit' }}
+</button>
+```
+
+**Rules:**
+- Disable submit button when form has validation errors
+- Show loading indicator during submission
+- Prevent double submission (disable button, ignore duplicate events)
+- Provide clear success feedback (redirect or success toast)
+
+### Accessible Labels
+
+```vue
+<!-- ✅ Explicit label with for/id -->
+<label for="username">Username <span aria-label="required">*</span></label>
+<input id="username" required aria-describedby="username-hint" />
+<p id="username-hint">3-20 characters, letters and numbers only</p>
+
+<!-- ❌ Missing label -->
+<input placeholder="Username" />
+```
+
+## Performance
+
+### Target: 60fps
+
+- UI must render at 60fps (≤ 16ms per frame)
+- Prefer CSS animations/transitions over JavaScript animations
+- Use `will-change` sparingly (only for elements that will actually change)
+
+### Conditional Rendering
+
+```vue
+<!-- ✅ v-show for frequently toggled elements -->
+<div v-show="isVisible">Frequently toggled content</div>
+
+<!-- ✅ v-if for rarely toggled elements -->
+<div v-if="isVisible">Rarely toggled content</div>
+```
+
+### Lazy Loading
+
+```typescript
+// Lazy-load off-screen panels
+const SettingsPanel = defineAsyncComponent(() => 
+  import('./SettingsPanel.vue')
+);
+```
+
+## Testing
+
+### Component Tests
+
+```typescript
+import { render, screen, fireEvent } from '@testing-library/vue';
+import UserCard from './UserCard.vue';
+
+test('emits delete event when delete button clicked', async () => {
+  const { emitted } = render(UserCard, {
+    props: { user: mockUser },
+  });
+
+  await fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+  expect(emitted()).toHaveProperty('delete');
+});
+```
+
+### Snapshot Tests
+
+- Snapshot tests for all visual states (default, loading, error, empty)
+- Update snapshots only after verifying visual correctness
+
+### Accessibility Tests
+
+```typescript
+import { axe } from 'vitest-axe';
+
+test('has no accessibility violations', async () => {
+  const { container } = render(UserCard, { props: { user: mockUser } });
+  expect(await axe(container)).toHaveNoViolations();
+});
+```
+
+### Reduced Motion Tests
+
+```typescript
+test('respects prefers-reduced-motion', async () => {
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: true,  // Simulate prefers-reduced-motion
+  });
+
+  render(AnimatedComponent);
+  expect(screen.queryByTestId('animation')).not.toBeInTheDocument();
+});
+```
+
+## Enforcement
+
+**CI gates:**
+- Accessibility tests pass (axe-core, Lighthouse)
+- Component tests pass
+- No hardcoded color values (lint rule)
+
+**Code review checklist:**
+- [ ] Animations respect `prefers-reduced-motion`
+- [ ] Color contrast meets WCAG AA (4.5:1)
+- [ ] All interactive elements keyboard accessible
+- [ ] Loading, error, and empty states implemented
+- [ ] Form validation follows timing rules
+- [ ] All inputs have visible labels
+- [ ] No hardcoded colors (uses design tokens)
+
+## Related Rules
+
+- [Accessibility Standards](/rules/accessibility-standards) — WCAG 2.2 AA compliance
+- [Theming](/rules/theming) — Dark mode and color system
+- [Testing Standards](/rules/testing) — Component testing requirements

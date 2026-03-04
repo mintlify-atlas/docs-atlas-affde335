@@ -1,0 +1,532 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for hatch3r
+---
+
+This guide helps you resolve common issues with the hatch3r CLI, MCP servers, board commands, and generated tool configs.
+
+<Note>
+  If you don't find your issue here, see [Getting Help](#getting-help) at the end.
+</Note>
+
+## Prerequisites
+
+### Node.js Version Errors
+
+<AccordionGroup>
+  <Accordion title="npx hatch3r fails with module or ESM errors">
+    **Symptoms:**
+    - `ERR_UNSUPPORTED_ESM_URL` or similar module resolution errors
+    - `SyntaxError: Unexpected token` when running hatch3r
+    
+    **Cause:** Node.js version is below 22. hatch3r requires Node.js 22+.
+    
+    **Solution:**
+    
+    <Steps>
+      <Step title="Check your version">
+        ```bash
+        node --version
+        ```
+        Should show v22.0.0 or higher.
+      </Step>
+      
+      <Step title="Upgrade Node.js">
+        Using [nvm](https://github.com/nvm-sh/nvm):
+        ```bash
+        nvm install 22
+        nvm use 22
+        ```
+        
+        Or using [fnm](https://github.com/Schniz/fnm):
+        ```bash
+        fnm install 22
+        fnm use 22
+        ```
+      </Step>
+      
+      <Step title="Verify">
+        ```bash
+        node --version
+        npx hatch3r --help
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="npm run build fails with ESM resolution errors">
+    **Cause:** Same as above — Node.js < 22.
+    
+    **Solution:** Ensure Node.js 22+ is active:
+    ```bash
+    nvm use 22  # or fnm use 22
+    npm run build
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## CLI Commands
+
+### When to Use Each Command
+
+<AccordionGroup>
+  <Accordion title="npx hatch3r init — when to use sync instead">
+    **Symptom:** You ran `init` but `.agents/` already exists.
+    
+    **Cause:** `init` is for first-time setup. If `.agents/` is present, you should sync or update instead.
+    
+    **Solution:**
+    - **`npx hatch3r sync`** — Regenerate tool outputs from existing canonical source
+    - **`npx hatch3r update`** — Pull the latest hatch3r templates
+  </Accordion>
+  
+  <Accordion title="Invalid tool(s) error">
+    **Symptom:** Error when passing `--tools` to init:
+    ```
+    Invalid tool(s): invalid-tool
+    ```
+    
+    **Cause:** The tool name is not supported.
+    
+    **Solution:** Use only valid tools:
+    ```bash
+    npx hatch3r init --tools cursor,claude,opencode
+    ```
+    
+    **Valid tools:** `cursor`, `copilot`, `claude`, `opencode`, `windsurf`, `amp`, `codex`, `gemini`, `cline`
+  </Accordion>
+  
+  <Accordion title="Not in a git repository">
+    **Symptom:** Init completes but `owner` and `repo` in `hatch.json` are empty.
+    
+    **Cause:** hatch3r reads owner/repo from `git remote get-url origin`. Without a git repo or remote, these stay empty.
+    
+    **Solution:**
+    
+    Run init from a git repository root:
+    ```bash
+    git init
+    git remote add origin https://github.com/owner/repo.git
+    npx hatch3r init
+    ```
+    
+    Or edit `/.agents/hatch.json` manually:
+    ```json
+    {
+      "owner": "your-org",
+      "repo": "your-repo",
+      "board": {
+        "owner": "your-org",
+        "repo": "your-repo"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="No .agents/hatch.json found">
+    **Symptom:** `sync`, `update`, or `status` fails with:
+    ```
+    No .agents/hatch.json found.
+    ```
+    
+    **Cause:** The project has not been initialized, or the manifest was removed.
+    
+    **Solution:**
+    
+    Run `npx hatch3r init` first.
+    
+    If you had a working setup before, check `.agents/.backups/` for a backup of `hatch.json`.
+  </Accordion>
+  
+  <Accordion title="Failed to generate {tool} output">
+    **Symptom:** Sync or update fails with:
+    ```
+    Failed to generate {tool} output
+    ```
+    
+    **Cause:** An adapter encountered an error while generating tool-specific files.
+    
+    **Solution:**
+    
+    <Steps>
+      <Step title="Validate structure">
+        ```bash
+        npx hatch3r validate
+        ```
+      </Step>
+      
+      <Step title="Fix validation errors">
+        See [Validation](#validation) section below
+      </Step>
+      
+      <Step title="Re-run sync">
+        ```bash
+        npx hatch3r sync
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+</AccordionGroup>
+
+## Validation
+
+### Common Validation Errors
+
+Run `npx hatch3r validate` to check the `.agents/` structure.
+
+<AccordionGroup>
+  <Accordion title=".agents/ directory not found">
+    **Solution:** Run `npx hatch3r init` to create the canonical structure.
+  </Accordion>
+  
+  <Accordion title="Missing .agents/hatch.json manifest">
+    **Solution:**
+    
+    Init may have been interrupted. Options:
+    - Re-run `npx hatch3r init`
+    - Restore from `.agents/.backups/` if available
+  </Accordion>
+  
+  <Accordion title="Required directory missing">
+    **Symptom:** Missing `.agents/agents/`, `.agents/skills/`, or `.agents/rules/`
+    
+    **Solution:**
+    - Restore from `.agents/.backups/`
+    - Or re-run `npx hatch3r init` to recreate structure
+  </Accordion>
+  
+  <Accordion title="Invalid frontmatter (no closing ---)">
+    **Symptom:**
+    ```
+    Invalid frontmatter (no closing ---) in .agents/rules/hatch3r-code-standards.md
+    ```
+    
+    **Solution:**
+    
+    Open the file and ensure YAML frontmatter has both opening and closing `---`:
+    ```markdown
+    ---
+    id: my-rule
+    type: rule
+    description: My rule
+    ---
+    # Content
+    ```
+  </Accordion>
+  
+  <Accordion title="Missing 'id' or 'type' in frontmatter">
+    **Solution:**
+    
+    Add `id:` and `type:` to the YAML frontmatter:
+    ```yaml
+    ---
+    id: hatch3r-code-standards
+    type: rule
+    description: Code quality and style standards
+    ---
+    ```
+  </Accordion>
+  
+  <Accordion title="Invalid JSON in .agents/mcp/mcp.json">
+    **Solution:**
+    
+    Validate JSON syntax:
+    ```bash
+    jq . .agents/mcp/mcp.json
+    ```
+    
+    Or use an online JSON validator. Fix:
+    - Trailing commas
+    - Unquoted keys
+    - Malformed strings
+    
+    Restore from `.agents/.backups/` if needed.
+  </Accordion>
+  
+  <Accordion title="Managed file missing from disk">
+    **Solution:**
+    
+    Run `npx hatch3r sync` to regenerate the missing file from canonical source.
+  </Accordion>
+  
+  <Accordion title="Managed file without hatch3r- prefix">
+    **Solution:**
+    
+    Files in `managedFiles` that are not shared (AGENTS.md, CLAUDE.md, etc.) should use the `hatch3r-` prefix.
+    
+    Either:
+    - Rename the file to `hatch3r-*.md`
+    - Or remove it from `managedFiles` if it's a custom file
+  </Accordion>
+</AccordionGroup>
+
+## MCP and Secrets
+
+### Connection Issues
+
+<AccordionGroup>
+  <Accordion title="MCP servers not connecting">
+    **Symptoms:**
+    - Red or gray dots next to MCP servers in Cursor: Settings → Tools & MCP
+    - MCP tools do not appear in "Available Tools" in chat/composer
+    
+    **Causes:**
+    - Secrets not loaded
+    - Wrong config path
+    - Editor not restarted after config changes
+    
+    **Solution:**
+    
+    <Steps>
+      <Step title="Load secrets">
+        For Cursor, Claude Code, and most editors, source `.env.mcp` before launching:
+        ```bash
+        set -a && source .env.mcp && set +a && cursor .
+        ```
+      </Step>
+      
+      <Step title="Restart the editor">
+        Restart after running `hatch3r init` or changing MCP config
+      </Step>
+      
+      <Step title="Verify config path">
+        - **Cursor:** `.cursor/mcp.json`
+        - **Claude Code:** `.mcp.json`
+        - **VS Code:** `.vscode/mcp.json`
+        
+        See [MCP Setup Guide](/guides/mcp-setup) for all tools
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="GitHub MCP returns 401 or 403">
+    **Symptoms:** GitHub tools fail with authentication or permission errors.
+    
+    **Causes:**
+    - Missing or invalid `GITHUB_PAT`
+    - Insufficient token scopes
+    
+    **Solution:**
+    
+    <Steps>
+      <Step title="Create a Personal Access Token">
+        [Create a PAT](https://github.com/settings/tokens/new)
+      </Step>
+      
+      <Step title="Grant scopes">
+        **Classic PAT:**
+        - `repo` — Full control of private repositories
+        - `read:org` — Read org and team membership
+        - `project` — For board commands
+        
+        **Fine-grained PAT:**
+        - **Repository permissions:** Contents, Issues, Pull requests, Metadata
+        - **Organization permissions:** Members (read) for org projects
+        - **Projects permissions:** For board commands
+      </Step>
+      
+      <Step title="Add to .env.mcp">
+        ```bash
+        GITHUB_PAT=ghp_xxxxxxxxxxxx
+        ```
+      </Step>
+      
+      <Step title="Source and restart">
+        ```bash
+        set -a && source .env.mcp && set +a
+        # Restart your editor
+        ```
+      </Step>
+    </Steps>
+    
+    See [MCP Setup Guide](/guides/mcp-setup#github-pat-scopes) for detailed scope guidance.
+  </Accordion>
+  
+  <Accordion title="Brave Search or other MCP servers">
+    **Solution:**
+    
+    See [MCP Setup Guide](/guides/mcp-setup) for per-server environment variables:
+    - `BRAVE_API_KEY` — [Brave Search API](https://brave.com/search/api/)
+    - `SENTRY_AUTH_TOKEN` — [Sentry Auth Tokens](https://sentry.io/settings/account/api/auth-tokens/)
+    - `POSTGRES_URL` — PostgreSQL connection string
+    - `LINEAR_API_KEY` — [Linear API keys](https://linear.app/settings/api)
+  </Accordion>
+</AccordionGroup>
+
+## Board Commands
+
+Board commands (`board-init`, `board-fill`, `board-pickup`) use the GitHub API and Projects V2.
+
+<AccordionGroup>
+  <Accordion title="GraphQL or permission failures">
+    **Symptoms:**
+    - "Permission denied" when creating/updating projects or issues
+    - Mutation failures
+    - 403 errors
+    
+    **Cause:** The GitHub PAT lacks the `project` scope required for Projects V2 operations.
+    
+    **Solution:**
+    
+    **If using gh CLI:**
+    ```bash
+    gh auth refresh -s project
+    ```
+    
+    **If using a PAT:**
+    - Create or update your token to include the `project` scope (classic)
+    - Or add Projects permissions (fine-grained)
+  </Accordion>
+  
+  <Accordion title="Board config missing">
+    **Symptom:** The board command prompts:
+    ```
+    I need the GitHub owner and repository
+    ```
+    
+    **Cause:** `hatch.json` is missing `owner`/`repo` or `board.owner`/`board.repo`.
+    
+    **Solution:**
+    
+    Provide owner and repo when prompted.
+    
+    To persist, edit `/.agents/hatch.json`:
+    ```json
+    {
+      "owner": "your-org",
+      "repo": "your-repo",
+      "board": {
+        "owner": "your-org",
+        "repo": "your-repo"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Generated Files and Adapters
+
+<AccordionGroup>
+  <Accordion title="Adapter output looks wrong after manual edits">
+    **Symptom:** Files in `.cursor/`, `.github/`, or other generated directories don't match what you expect.
+    
+    **Solution:**
+    
+    Run `npx hatch3r sync` to regenerate from canonical source.
+    
+    **Note:**
+    - Content outside `<!-- HATCH3R:BEGIN/END -->` in markdown files is preserved
+    - Non-prefixed files (e.g., `my-project-conventions.mdc`) are never touched
+  </Accordion>
+  
+  <Accordion title="Drift between canonical and generated files">
+    **Symptom:** You're unsure if generated files are in sync with `/.agents/`.
+    
+    **Solution:**
+    
+    <Steps>
+      <Step title="Check status">
+        ```bash
+        npx hatch3r status
+        ```
+        Shows synced, drifted, or missing files.
+      </Step>
+      
+      <Step title="Fix drift">
+        ```bash
+        npx hatch3r sync
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="Tool-specific behavior">
+    **Solution:**
+    
+    See the [Adapters](/concepts/adapters) documentation for per-tool:
+    - Output paths
+    - Capabilities
+    - Limitations (e.g., Windsurf MCP is global-only)
+    - Hook support
+  </Accordion>
+</AccordionGroup>
+
+## Development (Contributors)
+
+<AccordionGroup>
+  <Accordion title="Build fails with module errors">
+    **Solution:**
+    
+    Ensure Node.js 22+:
+    ```bash
+    node --version  # Should be v22.0.0+
+    npm run build
+    ```
+  </Accordion>
+  
+  <Accordion title="Tests fail with ENOENT or fixture errors">
+    **Symptom:** Tests fail with "ENOENT" or symlink-related errors.
+    
+    **Solution:**
+    
+    <Steps>
+      <Step title="Build first">
+        ```bash
+        npm run build
+        ```
+        Ensures `dist/` is up to date.
+      </Step>
+      
+      <Step title="Run tests">
+        ```bash
+        npm test
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+  
+  <Accordion title="More contributor troubleshooting">
+    See [CONTRIBUTING.md](https://github.com/hatch3r/hatch3r/blob/main/CONTRIBUTING.md#troubleshooting) for additional development setup and troubleshooting.
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+If this guide didn't resolve your issue:
+
+<Steps>
+  <Step title="Open an issue">
+    [github.com/hatch3r/hatch3r/issues](https://github.com/hatch3r/hatch3r/issues)
+  </Step>
+  
+  <Step title="Include diagnostic info">
+    - **OS and version** (e.g., macOS 14, Ubuntu 22.04)
+    - **Node version:** `node --version`
+    - **hatch3r version:** From `npx hatch3r --version` or package
+    - **Tools configured** (e.g., Cursor, Copilot)
+    - **Exact error message or output**
+    - **Steps to reproduce**
+  </Step>
+</Steps>
+
+This information helps us diagnose and fix issues faster.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MCP Setup" icon="link" href="/guides/mcp-setup">
+    Connecting MCP servers and managing secrets
+  </Card>
+  
+  <Card title="Workflow Guide" icon="diagram-project" href="/guides/workflow">
+    Full project lifecycle
+  </Card>
+  
+  <Card title="Model Selection" icon="brain" href="/guides/model-selection">
+    Configure AI models per agent
+  </Card>
+  
+  <Card title="Adapter Matrix" icon="table" href="/configuration/adapter-capability-matrix">
+    Per-tool support and limitations
+  </Card>
+</CardGroup>

@@ -1,0 +1,384 @@
+---
+title: Error Handling
+description: Structured error hierarchies, retry strategies, and correlation tracking for production reliability
+---
+
+# Error Handling
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-error-handling`
+
+Defines error handling patterns including structured error hierarchies, retry strategies with exponential backoff, and correlation tracking across client and server.
+
+## Structured Error Hierarchy
+
+### Base Error Class
+
+```typescript
+class AppError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly cause?: Error,
+    public readonly metadata?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+```
+
+### Domain-Specific Error Classes
+
+```typescript
+// Validation errors (HTTP 400)
+class ValidationError extends AppError {
+  constructor(message: string, public readonly fields: string[]) {
+    super("VALIDATION_ERROR", message);
+  }
+}
+
+// Authentication errors (HTTP 401)
+class AuthError extends AppError {
+  constructor(message: string, cause?: Error) {
+    super("AUTH_ERROR", message, cause);
+  }
+}
+
+// Not found errors (HTTP 404)
+class NotFoundError extends AppError {
+  constructor(resource: string, id: string) {
+    super("NOT_FOUND", `${resource} with id ${id} not found`);
+  }
+}
+
+// Conflict errors (HTTP 409)
+class ConflictError extends AppError {
+  constructor(message: string) {
+    super("CONFLICT", message);
+  }
+}
+```
+
+### Never Throw Raw Errors
+
+```typescript
+// ❌ Avoid: generic errors without classification
+throw new Error("User not found");
+
+// ✅ Prefer: domain-specific error classes
+throw new NotFoundError("User", userId);
+```
+
+## Error Code System
+
+### Typed Error Codes
+
+```typescript
+// Define error codes as string enums
+enum ErrorCode {
+  VALIDATION_ERROR = "VALIDATION_ERROR",
+  AUTH_ERROR = "AUTH_ERROR",
+  NOT_FOUND = "NOT_FOUND",
+  CONFLICT = "CONFLICT",
+  RATE_LIMIT = "RATE_LIMIT",
+  INTERNAL_ERROR = "INTERNAL_ERROR",
+}
+
+// Use codes consistently
+class RateLimitError extends AppError {
+  constructor(public readonly retryAfter: number) {
+    super(
+      ErrorCode.RATE_LIMIT,
+      `Rate limit exceeded. Retry after ${retryAfter} seconds.`,
+      undefined,
+      { retryAfter }
+    );
+  }
+}
+```
+
+### Map Error Codes to HTTP Status
+
+```typescript
+const errorCodeToStatus: Record<string, number> = {
+  VALIDATION_ERROR: 400,
+  AUTH_ERROR: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  RATE_LIMIT: 429,
+  INTERNAL_ERROR: 500,
+};
+```
+
+## Never Swallow Errors
+
+### Always Re-throw or Log
+
+```typescript
+// ❌ Silent failure
+try {
+  await riskyOperation();
+} catch (error) {
+  // Nothing — error is lost
+}
+
+// ✅ Re-throw with context
+try {
+  await riskyOperation();
+} catch (error) {
+  throw new AppError(
+    "OPERATION_FAILED",
+    "Risky operation failed",
+    error as Error
+  );
+}
+
+// ✅ Log with correlation ID
+try {
+  await riskyOperation();
+} catch (error) {
+  logger.error("Risky operation failed", {
+    correlationId: req.correlationId,
+    error,
+  });
+  throw error;
+}
+```
+
+## Retry with Exponential Backoff
+
+### Retry Strategy for Transient Failures
+
+```typescript
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxRetries: number;
+    initialDelayMs: number;
+    maxDelayMs: number;
+    retryableErrors: string[];
+  }
+): Promise<T> {
+  let attempt = 0;
+  let delayMs = options.initialDelayMs;
+
+  while (true) {
+    try {
+      return await fn();
+    } catch (error) {
+      attempt++;
+
+      const isRetryable =
+        error instanceof AppError &&
+        options.retryableErrors.includes(error.code);
+
+      if (!isRetryable || attempt >= options.maxRetries) {
+        throw error;
+      }
+
+      // Exponential backoff with jitter
+      const jitter = Math.random() * 0.3 * delayMs;
+      await sleep(delayMs + jitter);
+      delayMs = Math.min(delayMs * 2, options.maxDelayMs);
+    }
+  }
+}
+
+// Usage
+const result = await retryWithBackoff(
+  () => apiClient.fetchData(),
+  {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 10000,
+    retryableErrors: ["NETWORK_ERROR", "TIMEOUT"],
+  }
+);
+```
+
+### Honor Retry-After on 429
+
+```typescript
+if (response.status === 429) {
+  const retryAfter = parseInt(response.headers.get("Retry-After") || "60", 10);
+  await sleep(retryAfter * 1000);
+  return retry();
+}
+```
+
+## API Error Responses
+
+### Structured Error Response Format
+
+```typescript
+interface ErrorResponse {
+  code: string;           // Machine-readable error code
+  message: string;        // Human-readable message
+  details?: unknown;      // Optional additional context
+  correlationId: string;  // Trace requests across services
+}
+
+// Example response
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Invalid email format",
+  "details": {
+    "fields": ["email"],
+    "constraints": {
+      "email": "Must be a valid email address"
+    }
+  },
+  "correlationId": "req_abc123xyz789"
+}
+```
+
+### Never Expose Internal Details
+
+```typescript
+// ❌ Leaks implementation details
+res.status(500).json({
+  error: error.stack,
+  query: sqlQuery,
+  env: process.env,
+});
+
+// ✅ Safe, sanitized response
+res.status(500).json({
+  code: "INTERNAL_ERROR",
+  message: "An unexpected error occurred",
+  correlationId: req.correlationId,
+});
+```
+
+## UI Error Boundaries
+
+### Framework Error Boundaries
+
+```typescript
+// React example
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    logger.error("UI error boundary caught error", {
+      error,
+      componentStack: errorInfo.componentStack,
+      correlationId: getCorrelationId(),
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <FallbackUI />;
+    }
+    return this.props.children;
+  }
+}
+```
+
+### User-Friendly Fallback UI
+
+- Display a clear, actionable error message
+- Provide recovery actions (retry, refresh, contact support)
+- Log full error details server-side
+- Never show stack traces or technical details to users
+
+## Correlation ID Tracking
+
+### Generate and Propagate Correlation IDs
+
+```typescript
+// Middleware to generate correlation ID
+app.use((req, res, next) => {
+  req.correlationId = req.headers['x-correlation-id'] as string || 
+                      `req_${nanoid()}`;
+  res.setHeader('X-Correlation-Id', req.correlationId);
+  next();
+});
+
+// Include in all error logs
+logger.error("Database query failed", {
+  correlationId: req.correlationId,
+  userId: req.user?.id,
+  error,
+});
+```
+
+### Client-Side Correlation
+
+```typescript
+// Generate client-side correlation ID
+const correlationId = `client_${nanoid()}`;
+
+// Include in API requests
+fetch('/api/data', {
+  headers: {
+    'X-Correlation-Id': correlationId,
+  },
+});
+
+// Log client-side errors with same ID
+logger.error("API request failed", { correlationId, error });
+```
+
+## Security: No Secrets in Errors
+
+### Sanitize Error Messages
+
+```typescript
+// ❌ Exposes credentials
+throw new Error(`Failed to connect to ${dbUrl}`);
+
+// ✅ Safe, no sensitive data
+throw new AppError(
+  "DB_CONNECTION_ERROR",
+  "Failed to connect to database",
+  undefined,
+  { host: dbHost } // Exclude credentials
+);
+```
+
+### Sanitize Logs
+
+```typescript
+const sanitize = (obj: any) => {
+  const sensitiveFields = ['password', 'token', 'apiKey', 'secret'];
+  const sanitized = { ...obj };
+  for (const field of sensitiveFields) {
+    if (field in sanitized) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+  return sanitized;
+};
+
+logger.error("Auth failed", sanitize({ email, password, error }));
+```
+
+## Enforcement
+
+**Code review checklist:**
+- [ ] All errors use domain-specific error classes (no raw `Error`)
+- [ ] Error codes are typed string enums
+- [ ] No swallowed errors (all caught errors are logged or re-thrown)
+- [ ] Retry logic uses exponential backoff
+- [ ] API responses use structured error format
+- [ ] Correlation ID included in all error logs
+- [ ] No secrets, tokens, or PII in error messages or logs
+
+**Automated gates:**
+- Lint rule: detect `throw new Error()` without using AppError
+- Test coverage: verify error handling paths are tested
+
+## Related Rules
+
+- [Code Standards](/rules/code-standards) — Result types and error boundaries
+- [Observability](/rules/observability) — Structured logging and correlation
+- [Security Patterns](/rules/security-patterns) — Sanitization and fail-closed defaults

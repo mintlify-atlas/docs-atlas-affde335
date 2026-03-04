@@ -1,0 +1,483 @@
+---
+title: Installation
+description: Install hatch3r via npx and configure your development environment
+---
+
+# Installation
+
+Install hatch3r in any project to get battle-tested agents, skills, rules, commands, and MCP integrations for your AI coding tool.
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Node.js 22+" icon="node-js">
+    hatch3r requires Node.js version 22.0.0 or higher.
+
+    Check your version:
+    ```bash
+    node --version
+    ```
+  </Card>
+
+  <Card title="Git Repository" icon="git">
+    hatch3r works best in a git repository.
+
+    For board features, a GitHub remote is required.
+  </Card>
+</CardGroup>
+
+### Installing Node.js 22+
+
+If you don't have Node.js 22+, install it using one of these methods:
+
+<Tabs>
+  <Tab title="nvm (recommended)">
+    [nvm](https://github.com/nvm-sh/nvm) is a Node version manager that makes it easy to switch between Node versions.
+
+    ```bash
+    # Install or update to Node.js 22
+    nvm install 22
+    nvm use 22
+
+    # Verify installation
+    node --version
+    ```
+  </Tab>
+
+  <Tab title="fnm">
+    [fnm](https://github.com/Schniz/fnm) is a fast, simple Node version manager built in Rust.
+
+    ```bash
+    # Install Node.js 22
+    fnm install 22
+    fnm use 22
+
+    # Verify installation
+    node --version
+    ```
+  </Tab>
+
+  <Tab title="System Package Manager">
+    **macOS (Homebrew):**
+    ```bash
+    brew install node@22
+    ```
+
+    **Ubuntu/Debian:**
+    ```bash
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    ```
+
+    **Windows:**
+    Download from [nodejs.org](https://nodejs.org/)
+  </Tab>
+</Tabs>
+
+## Installation via npx
+
+hatch3r is distributed as an npm package and can be run directly with `npx` (no global installation required).
+
+<Steps>
+  <Step title="Navigate to your project">
+    ```bash
+    cd /path/to/your/project
+    ```
+
+    <Info>
+      For best results, run from the root of a git repository. hatch3r will detect your repo configuration automatically.
+    </Info>
+  </Step>
+
+  <Step title="Run the init command">
+    ```bash
+    npx hatch3r init
+    ```
+
+    This command:
+    - Detects your repository from `git remote`
+    - Prompts you to select AI coding tools (Cursor, Copilot, Claude Code, etc.)
+    - Optionally configures MCP servers (GitHub, Context7, Filesystem, Playwright, Brave Search)
+    - Generates canonical source in `/.agents/`
+    - Creates tool-specific configuration for each selected tool
+    - Creates `.env.mcp` for MCP secrets (gitignored)
+  </Step>
+
+  <Step title="Complete the interactive setup">
+    Follow the prompts to:
+
+    1. **Select your tools** - Choose which AI coding platforms you use
+    2. **Configure MCP** - Select which MCP servers to install (optional)
+    3. **Review generation** - Watch as hatch3r creates all configuration files
+
+    ```bash
+    ✔ Detected repository: owner/repo
+    ✔ Which tools do you use? › Cursor, GitHub Copilot
+    ✔ Configure MCP servers? › Yes
+    ✔ Which MCP servers? › GitHub, Context7, Brave Search
+    ✓ Generated canonical source in /.agents/
+    ✓ Generated Cursor configuration in .cursor/
+    ✓ Generated Copilot configuration in .github/
+    ✓ Created .env.mcp with placeholders
+    ```
+  </Step>
+</Steps>
+
+## Verify Installation
+
+After running `npx hatch3r init`, verify everything was generated correctly:
+
+### 1. Check Sync Status
+
+```bash
+npx hatch3r status
+```
+
+This command shows the sync status between canonical files (`/.agents/`) and generated tool configurations. You should see:
+
+```
+✓ All files synced
+
+Canonical files: 56
+Generated files: 123
+Synced: 123
+Drifted: 0
+Missing: 0
+```
+
+### 2. Validate Structure
+
+```bash
+npx hatch3r validate
+```
+
+This verifies the integrity of your `.agents/` directory:
+
+```
+✓ .agents/ directory exists
+✓ .agents/hatch.json manifest found
+✓ Required directories present
+✓ All frontmatter valid
+✓ No structural errors
+```
+
+### 3. Check Generated Files
+
+Verify that tool-specific files were created:
+
+<CodeGroup>
+
+```bash Cursor
+ls -la .cursor/
+# Should show:
+#   rules/hatch3r-*.mdc
+#   agents/hatch3r-*.md
+#   skills/hatch3r-*/
+#   commands/hatch3r-*.md
+#   mcp.json
+```
+
+```bash GitHub Copilot
+ls -la .github/
+# Should show:
+#   copilot-instructions.md
+#   instructions/hatch3r-*.instructions.md
+#   agents/hatch3r-*.md
+#   prompts/hatch3r-*.prompt.md
+#   skills/hatch3r-*/
+
+ls -la .vscode/
+# Should show:
+#   mcp.json
+```
+
+```bash Claude Code
+ls -la .claude/
+# Should show:
+#   rules/hatch3r-*.md
+#   agents/hatch3r-*.md
+#   skills/hatch3r-*/
+#   commands/hatch3r-*.md
+
+ls -la .mcp.json
+# Should exist
+
+ls -la CLAUDE.md
+# Should exist
+```
+
+</CodeGroup>
+
+### 4. Verify MCP Configuration (if selected)
+
+If you selected MCP servers during init:
+
+```bash
+cat .env.mcp
+```
+
+You should see placeholder environment variables:
+
+```bash
+# .env.mcp (generated by hatch3r init)
+GITHUB_PAT=
+BRAVE_API_KEY=
+CONTEXT7_API_KEY=
+```
+
+Fill these in with your actual API keys.
+
+## Post-Installation Setup
+
+### Configure MCP Secrets
+
+If you selected MCP servers, you need to configure API keys:
+
+<Steps>
+  <Step title="Obtain API keys">
+    - **GitHub:** Create a [Personal Access Token](https://github.com/settings/tokens/new) with `repo`, `read:org`, and `project` scopes
+    - **Brave Search:** Get an API key from [Brave Search API](https://brave.com/search/api/)
+    - **Context7:** Sign up at [context7.com](https://context7.com) (if using)
+  </Step>
+
+  <Step title="Add keys to .env.mcp">
+    Edit `.env.mcp` and add your keys:
+
+    ```bash .env.mcp
+    GITHUB_PAT=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    BRAVE_API_KEY=BSAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    CONTEXT7_API_KEY=c7_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    ```
+
+    <Warning>
+      Never commit `.env.mcp` to version control. It's automatically gitignored by hatch3r.
+    </Warning>
+  </Step>
+
+  <Step title="Load secrets before launching editor">
+    **For Cursor, Claude Code, and most editors:**
+
+    ```bash
+    set -a && source .env.mcp && set +a && cursor .
+    ```
+
+    This exports all variables from `.env.mcp` so they're available to MCP servers.
+
+    **For VS Code / GitHub Copilot:**
+
+    No action needed. VS Code automatically loads `.env.mcp` via the `envFile` field in MCP config.
+  </Step>
+
+  <Step title="Restart your editor">
+    After sourcing secrets, restart your AI coding tool to activate MCP servers.
+  </Step>
+</Steps>
+
+### Verify MCP Connection
+
+<Tabs>
+  <Tab title="Cursor">
+    1. Open Cursor Settings → Tools & MCP
+    2. Check that MCP servers show green dots (connected)
+    3. In a new chat/composer, verify MCP tools appear in "Available Tools"
+
+    <Tip>
+      If servers show red/gray dots, ensure you sourced `.env.mcp` before launching Cursor.
+    </Tip>
+  </Tab>
+
+  <Tab title="Claude Code">
+    Run a test command in Claude Code:
+
+    ```bash
+    # Ask Claude to use the GitHub MCP server
+    "List the open issues in this repository"
+    ```
+
+    Claude should use the GitHub MCP server to fetch issues.
+  </Tab>
+
+  <Tab title="VS Code / Copilot">
+    1. Open Command Palette (Cmd/Ctrl+Shift+P)
+    2. Search for "MCP"
+    3. Verify MCP servers are listed and connected
+  </Tab>
+</Tabs>
+
+## CLI Commands
+
+After installation, you have access to these CLI commands:
+
+```bash
+npx hatch3r init          # Interactive setup (first-time only)
+npx hatch3r sync          # Re-generate tool configs from canonical source
+npx hatch3r update        # Pull latest hatch3r templates (safe merge)
+npx hatch3r status        # Check sync status between canonical and generated files
+npx hatch3r validate      # Validate .agents/ structure
+```
+
+<Note>
+  **When to use `sync` vs `update`:**
+
+  - `sync` - Regenerates tool configs from your current `.agents/` canonical source. Use after editing canonical files.
+  - `update` - Pulls the latest hatch3r templates and merges them with your setup. Use to get new agents, skills, or rules from hatch3r releases.
+</Note>
+
+## Troubleshooting
+
+### Node.js Version Errors
+
+**Symptom:** `ERR_UNSUPPORTED_ESM_URL` or `SyntaxError: Unexpected token` when running `npx hatch3r`
+
+**Cause:** Node.js version is below 22.
+
+**Solution:**
+
+```bash
+# Check your version
+node --version
+
+# Upgrade with nvm
+nvm install 22
+nvm use 22
+
+# Or upgrade with fnm
+fnm install 22
+fnm use 22
+
+# Verify
+node --version  # Should show v22.0.0 or higher
+```
+
+### Not in a Git Repository
+
+**Symptom:** Init completes but `owner` and `repo` in `hatch.json` are empty.
+
+**Cause:** hatch3r reads owner/repo from `git remote get-url origin`.
+
+**Solution:**
+
+1. Initialize a git repository:
+   ```bash
+   git init
+   git remote add origin https://github.com/owner/repo.git
+   ```
+
+2. Or manually edit `/.agents/hatch.json`:
+   ```json
+   {
+     "owner": "your-org",
+     "repo": "your-repo",
+     "board": {
+       "owner": "your-org",
+       "repo": "your-repo"
+     }
+   }
+   ```
+
+### Invalid Tool Selection
+
+**Symptom:** `Invalid tool(s): xyz` error during init.
+
+**Solution:**
+
+Use only valid tool names: `cursor`, `copilot`, `claude`, `opencode`, `windsurf`, `amp`, `codex`, `gemini`, `cline`, `aider`, `kiro`, `goose`, `zed`
+
+```bash
+# Example: Install for Cursor and Copilot
+npx hatch3r init --tools cursor,copilot
+```
+
+### MCP Servers Not Connecting
+
+**Symptoms:**
+- Red or gray dots next to MCP servers in editor settings
+- MCP tools don't appear in "Available Tools"
+
+**Solutions:**
+
+1. **Load secrets before launching:**
+   ```bash
+   set -a && source .env.mcp && set +a && cursor .
+   ```
+
+2. **Verify API keys in .env.mcp:**
+   ```bash
+   cat .env.mcp
+   # Check that all keys are filled in (not empty)
+   ```
+
+3. **Check config path:**
+   - Cursor: `.cursor/mcp.json`
+   - Claude Code: `.mcp.json`
+   - VS Code/Copilot: `.vscode/mcp.json`
+   - Cline: `.roo/mcp.json`
+
+4. **Restart your editor** after any configuration changes
+
+### GitHub MCP Returns 401/403
+
+**Cause:** Missing or invalid `GITHUB_PAT`, or insufficient token scopes.
+
+**Solution:**
+
+1. Create a [Personal Access Token](https://github.com/settings/tokens/new)
+
+2. **For Classic PAT:**
+   - Grant `repo` scope
+   - Grant `read:org` scope
+   - Grant `project` scope (for board commands)
+
+3. **For Fine-grained PAT:**
+   - Repository permissions: Contents (read), Issues (read/write), Pull requests (read/write), Metadata (read)
+   - Organization permissions: Members (read)
+   - Projects permissions: Projects (read/write) - for board commands
+
+4. Add to `.env.mcp`:
+   ```bash
+   GITHUB_PAT=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+5. Source `.env.mcp` and restart editor
+
+### Failed to Generate Tool Output
+
+**Symptom:** `Failed to generate {tool} output` error during init or sync.
+
+**Solution:**
+
+1. Run validation:
+   ```bash
+   npx hatch3r validate
+   ```
+
+2. Fix any structural errors reported
+
+3. Re-run sync:
+   ```bash
+   npx hatch3r sync
+   ```
+
+4. If issues persist, check `.agents/.backups/` for recent backups
+
+## What's Next?
+
+Now that hatch3r is installed:
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Walk through the full setup and first workflow
+  </Card>
+
+  <Card title="Supported Tools" icon="wrench" href="/supported-tools">
+    Learn what gets generated for each AI coding tool
+  </Card>
+
+  <Card title="MCP Setup" icon="plug" href="/guides/mcp-setup">
+    Detailed MCP server configuration and troubleshooting
+  </Card>
+
+  <Card title="Board Management" icon="kanban" href="/guides/board-management">
+    Set up GitHub Projects V2 workflow
+  </Card>
+</CardGroup>

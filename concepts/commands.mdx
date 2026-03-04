@@ -1,0 +1,459 @@
+---
+title: Commands
+description: Orchestration commands for board management, planning, audits, and releases
+---
+
+Commands are high-level orchestration workflows that coordinate agents, skills, and GitHub operations. hatch3r includes 29 commands organized by category.
+
+## Command Structure
+
+Each command is defined in `/.agents/commands/` as a markdown file with frontmatter:
+
+```yaml
+---
+id: hatch3r-board-pickup
+type: command
+description: Pick up issues from GitHub board for development
+---
+```
+
+Commands orchestrate:
+- **Board operations**: GitHub Projects V2 sync, label management, issue creation
+- **Agent delegation**: Spawn researcher, implementer, and specialist sub-agents
+- **Git operations**: Branch creation, commits, PR creation
+- **Quality gates**: Verification, testing, review
+
+## The 29 Commands
+
+### Board Management Commands
+
+<AccordionGroup>
+  <Accordion title="board-init" icon="table">
+    **Purpose**: Bootstrap a GitHub Projects V2 board for your repository
+    
+    **Workflow**:
+    1. Create new project or connect to existing
+    2. Configure status fields (Backlog, Ready, In Progress, In Review, Done)
+    3. Create full label taxonomy (type, executor, status, priority, risk, meta)
+    4. Prompt for default branch (main/master)
+    5. Optionally migrate issues from another project
+    6. Write all project IDs back to `hatch.json`
+    
+    **All mutations require user confirmation**
+    
+    **Invocation**: `/hatch3r board-init` or "initialize the board"
+  </Accordion>
+  
+  <Accordion title="board-fill" icon="inbox">
+    **Purpose**: Parse `todo.md` and create GitHub epics/issues with full board reorganization
+    
+    **Workflow**:
+    1. Read `todo.md` at project root
+    2. Parse items (one per line)
+    3. Deduplicate against existing issues
+    4. Classify each item (type, executor, priority, area, risk)
+    5. Group into epics
+    6. Build dependency graph
+    7. Determine implementation order
+    8. Identify parallel work lanes
+    9. Mark issues `status:ready` when all blockers satisfied
+    
+    **Reads project documentation and codebase context for well-scoped issues**
+    
+    **Invocation**: `/hatch3r board-fill` or "fill the board from todo.md"
+  </Accordion>
+  
+  <Accordion title="board-pickup" icon="hand">
+    **Purpose**: Pick up the next best issue(s) from the board for development
+    
+    **Workflow**:
+    1. **List available work** (dependency-aware, priority-sorted)
+    2. **Scope selection** (single issue, epic, sub-issue, batch)
+    3. **Collision detection** (in-progress issues, open PRs)
+    4. **Update issue status** (`status:in-progress`)
+    5. **Branch creation** (`{type}/{short-description}`)
+    6. **Delegate implementation**:
+       - Spawn `hatch3r-researcher` for context gathering
+       - Spawn `hatch3r-implementer` per issue/sub-issue
+       - Spawn specialists (reviewer, test-writer, security-auditor, docs-writer)
+    7. **Quality verification** (lint, typecheck, tests)
+    8. **Commit & push**
+    9. **Create PR** with full board sync
+    10. **Capture learnings**
+    
+    **Supports**:
+    - Single standalone issue
+    - Epic with sub-issues (parallel delegation by dependency level)
+    - Batch mode (multiple independent issues in parallel)
+    - Auto-pick (no specific issue referenced)
+    
+    **Auto-advance mode**: `--auto` for sustained autonomous operation with batch pickup
+    
+    **Invocation**: `/hatch3r board-pickup`, "pick up #42", "pick up the next issue", "batch pick up #1, #3, #7"
+    
+    See [Board Management](/concepts/board-management) for detailed workflow.
+  </Accordion>
+  
+  <Accordion title="board-refresh" icon="arrows-rotate">
+    **Purpose**: Regenerate the living board overview dashboard on demand
+    
+    **Workflow**:
+    1. Scan all open and recently closed issues
+    2. Compute board health metrics (missing metadata, stale issues, blocked chains)
+    3. Assign recommended models using quality-first heuristic
+    4. Update `meta:board-overview` issue with current status tables, epic progress, health diagnostics
+    
+    **No user prompts required**
+    
+    **Invocation**: `/hatch3r board-refresh` or automatically at end of `board-pickup`
+  </Accordion>
+  
+  <Accordion title="board-shared" icon="share-nodes">
+    **Purpose**: Shared context and procedures referenced by all board commands
+    
+    **Provides**:
+    - Board configuration from `hatch.json`
+    - GitHub context (owner, repo, project number)
+    - Projects V2 sync procedure (add + capture `item_id` + update status)
+    - Label taxonomy
+    - Tooling directives (gh CLI-first)
+    - Token-saving guidelines
+    
+    **Not invoked directly** (loaded by other board commands)
+  </Accordion>
+</AccordionGroup>
+
+### Planning Commands
+
+<AccordionGroup>
+  <Accordion title="project-spec" icon="file-contract">
+    **Purpose**: Generate complete project documentation from a project vision
+    
+    **Workflow**:
+    1. Spawn parallel researcher sub-agents:
+       - Stack researcher (tech stack, dependencies)
+       - Features researcher (feature matrix, user stories)
+       - Architecture researcher (system design, data model)
+       - Pitfalls researcher (risks, common mistakes)
+       - UX researcher (user flows, design patterns)
+       - Business researcher (business model, market)
+       - Production researcher (scale, reliability)
+    2. Produce `docs/specs/`, `docs/adr/`, and `todo.md`
+    
+    **Works for any project type**: web apps, APIs, CLIs, libraries, monorepos
+    
+    **Invocation**: `/hatch3r project-spec` with project vision
+  </Accordion>
+  
+  <Accordion title="codebase-map" icon="map">
+    **Purpose**: Analyze an existing codebase to reverse-engineer specifications
+    
+    **Workflow**:
+    1. Spawn parallel analyzer sub-agents to discover:
+       - Modules and dependencies
+       - Conventions and patterns
+       - Tech debt and code smells
+       - Architecture and data flows
+    2. Output structured documentation to `docs/specs/` and `docs/adr/`
+    
+    **For brownfield projects adding hatch3r**
+    
+    **Invocation**: `/hatch3r codebase-map`
+  </Accordion>
+  
+  <Accordion title="roadmap" icon="road">
+    **Purpose**: Generate a phased roadmap from specs or project vision
+    
+    **Workflow**:
+    1. Read specs or project vision
+    2. Break work into epics and features
+    3. Analyze dependencies
+    4. Determine implementation order
+    5. Identify parallel work lanes
+    6. Output to `todo.md` in `board-fill` format
+    
+    **Ready for immediate board population via board-fill**
+    
+    **Invocation**: `/hatch3r roadmap`
+  </Accordion>
+  
+  <Accordion title="feature-plan" icon="lightbulb">
+    **Purpose**: Plan a single feature in depth
+    
+    **Workflow**:
+    1. Spawn parallel researcher sub-agents:
+       - Codebase impact analysis
+       - Feature design breakdown
+       - Architecture design
+       - Risk & pitfalls assessment
+    2. Produce detailed spec, ADR(s) if architectural decisions needed
+    3. Output structured `todo.md` entries for `board-fill`
+    4. Optionally chain into `board-fill` to create GitHub issues
+    
+    **Invocation**: `/hatch3r feature-plan` with feature description
+  </Accordion>
+  
+  <Accordion title="bug-plan" icon="bug">
+    **Purpose**: Plan a complex bug investigation
+    
+    **Workflow**:
+    1. Spawn parallel researcher sub-agents:
+       - Symptom tracer (execution path, divergence point)
+       - Root cause investigator (hypotheses, code smells)
+       - Impact assessor (blast radius, affected flows)
+       - Regression researcher (timeline, recent changes)
+    2. Produce investigation report (`docs/investigations/`) with ranked hypotheses, evidence, reproduction strategy
+    3. Output scoped `todo.md` entries for `board-fill`
+    
+    **Use when reproducing is non-trivial or multiple modules might be involved**
+    
+    **Invocation**: `/hatch3r bug-plan` with bug symptoms
+  </Accordion>
+  
+  <Accordion title="refactor-plan" icon="arrows-rotate">
+    **Purpose**: Plan a refactoring or migration effort
+    
+    **Workflow**:
+    1. Auto-detect refactoring dimension (structural, logical, visual, migration, mixed)
+    2. Spawn parallel researcher sub-agents:
+       - Current state analyzer
+       - Strategy designer
+       - Impact/risk assessor
+       - Migration path planner
+    3. Produce refactoring spec, ADR(s), phased `todo.md` entries
+    4. Map phases to execution skills (refactor, logical-refactor, visual-refactor)
+    
+    **Invocation**: `/hatch3r refactor-plan` with refactoring goal
+  </Accordion>
+</AccordionGroup>
+
+### Audit Commands
+
+<AccordionGroup>
+  <Accordion title="healthcheck" icon="stethoscope">
+    **Purpose**: Create a full-product QA and testing audit epic
+    
+    **Workflow**:
+    1. Discover logical modules from directory structure
+    2. Create parent epic
+    3. Create one sub-issue per module for QA audit
+    4. Create cross-cutting audit sub-issues (inter-module wiring, product vision alignment)
+    5. Each audit sub-issue produces a findings epic with actionable sub-issues
+    
+    **Invocation**: `/hatch3r healthcheck`
+  </Accordion>
+  
+  <Accordion title="security-audit" icon="shield">
+    **Purpose**: Create a full-product security audit epic
+    
+    **Workflow**:
+    1. Discover logical modules from directory structure
+    2. Create parent epic
+    3. Create one sub-issue per module for security audit (7 domains: auth, input validation, data protection, access control, secret management, error handling, API security)
+    4. Create cross-cutting audit sub-issues (trust boundaries, OWASP Top 10)
+    5. Each module sub-issue produces a findings epic with severity-rated, actionable sub-issues
+    
+    **Invocation**: `/hatch3r security-audit`
+  </Accordion>
+  
+  <Accordion title="dep-audit" icon="box">
+    **Purpose**: Scan, assess, and upgrade npm dependencies
+    
+    **Workflow**:
+    1. Run `npm audit` and `npm outdated` across root and workspace packages
+    2. Categorize findings (CVEs by severity, major/minor/patch outdated)
+    3. Research migration paths via Context7 and web search
+    4. Upgrade packages one at a time with testing after each
+    5. Create tracking issues for unaddressed items
+    
+    **Invocation**: `/hatch3r dep-audit`
+  </Accordion>
+</AccordionGroup>
+
+### Workflow Commands
+
+<AccordionGroup>
+  <Accordion title="workflow" icon="diagram-project">
+    **Purpose**: Guided development lifecycle with 4 phases
+    
+    **Phases**:
+    1. **Analyze**: Understand the problem/feature
+    2. **Plan**: Design approach, identify risks
+    3. **Implement**: Delegate to implementer sub-agent
+    4. **Review**: Quality checks, PR creation
+    
+    **Quick mode**: For small tasks, skips unnecessary ceremony
+    
+    **Scale-adaptive**: Adjusts depth based on issue complexity
+    
+    **Invocation**: `/hatch3r workflow` or "use the workflow for this task"
+  </Accordion>
+  
+  <Accordion title="release" icon="rocket">
+    **Purpose**: Cut a versioned release with changelog
+    
+    **Workflow**:
+    1. Determine semantic version bump from merged PR classifications
+    2. Generate grouped changelog (features, fixes, refactors, docs, infra)
+    3. Run quality gates
+    4. Bump `package.json`
+    5. Create git tag
+    6. Publish GitHub release with notes
+    7. Optionally verify deployment
+    
+    **Supports pre-release/RC tags**
+    
+    **Invocation**: `/hatch3r release`
+  </Accordion>
+</AccordionGroup>
+
+### Customization Commands
+
+<AccordionGroup>
+  <Accordion title="agent-customize" icon="robot">
+    **Purpose**: Configure per-agent customization via `.customize.yaml` files
+    
+    **Allows**: Model overrides, additional instructions, context augmentation
+    
+    **Invocation**: `/hatch3r agent-customize`
+  </Accordion>
+  
+  <Accordion title="command-customize" icon="terminal">
+    **Purpose**: Configure per-command customization via `.customize.yaml` files
+    
+    **Invocation**: `/hatch3r command-customize`
+  </Accordion>
+  
+  <Accordion title="skill-customize" icon="wand-magic-sparkles">
+    **Purpose**: Configure per-skill customization via `.customize.yaml` files
+    
+    **Invocation**: `/hatch3r skill-customize`
+  </Accordion>
+  
+  <Accordion title="rule-customize" icon="gavel">
+    **Purpose**: Configure per-rule customization via `.customize.yaml` files
+    
+    **Invocation**: `/hatch3r rule-customize`
+  </Accordion>
+</AccordionGroup>
+
+### Monitoring & Learning Commands
+
+<AccordionGroup>
+  <Accordion title="hooks" icon="link">
+    **Purpose**: Interactive hook management for event-driven agent activation
+    
+    **Supports**: View, add, remove, test lifecycle hooks (post-commit, pre-push, issue assignment)
+    
+    **Hook targets**: Local (git hooks) and CI (GitHub Actions)
+    
+    **Invocation**: `/hatch3r hooks`
+  </Accordion>
+  
+  <Accordion title="learn" icon="graduation-cap">
+    **Purpose**: Capture learnings from completed issues, code reviews, architectural decisions
+    
+    **Workflow**:
+    1. Reflect on implementation (challenges, patterns, decisions, pitfalls)
+    2. Create learning files in `/.agents/learnings/`
+    3. Tag with area labels
+    4. Include `source-issue` reference
+    
+    **Learnings auto-consulted when similar work encountered** (via `learning-consult` rule)
+    
+    **Invocation**: `/hatch3r learn` or automatically at end of `board-pickup` Step 10
+  </Accordion>
+  
+  <Accordion title="context-health" icon="heartbeat">
+    **Purpose**: Monitor conversation context health during long agent sessions
+    
+    **Provides**: Token usage metrics, context window utilization, degradation warnings
+    
+    **Invocation**: `/hatch3r context-health`
+  </Accordion>
+  
+  <Accordion title="cost-tracking" icon="dollar-sign">
+    **Purpose**: Track token usage and estimated costs across agent workflows
+    
+    **Provides**: Per-command and per-agent cost breakdowns with budget alerts
+    
+    **Invocation**: `/hatch3r cost-tracking`
+  </Accordion>
+  
+  <Accordion title="recipe" icon="book">
+    **Purpose**: Create and manage composable workflow recipes
+    
+    **Allows**: Chain multiple commands and skills into repeatable sequences
+    
+    **Invocation**: `/hatch3r recipe`
+  </Accordion>
+</AccordionGroup>
+
+### Utility Commands
+
+<AccordionGroup>
+  <Accordion title="onboard" icon="person-circle-plus">
+    **Purpose**: Onboard new team members to the project
+    
+    **Generates**: Project overview, architecture walkthrough, contribution guide
+    
+    **Invocation**: `/hatch3r onboard`
+  </Accordion>
+  
+  <Accordion title="benchmark" icon="stopwatch">
+    **Purpose**: Benchmark agent performance across tasks
+    
+    **Invocation**: `/hatch3r benchmark`
+  </Accordion>
+  
+  <Accordion title="api-spec" icon="file-contract">
+    **Purpose**: Generate API specifications from code or design
+    
+    **Invocation**: `/hatch3r api-spec`
+  </Accordion>
+  
+  <Accordion title="migration-plan" icon="truck">
+    **Purpose**: Plan framework or API migrations
+    
+    **Invocation**: `/hatch3r migration-plan`
+  </Accordion>
+</AccordionGroup>
+
+## Command Invocation
+
+Commands are invoked via:
+
+1. **Cursor**: Cmd/Ctrl+K → type command name (e.g., "board-pickup")
+2. **Plain chat**: Natural language (e.g., "pick up the next issue", "run security audit")
+3. **CLI**: `npx hatch3r <command>` (for init, sync, update, status, validate)
+
+## Command Customization
+
+Override command behavior per project using `.hatch3r/commands/{id}.customize.yaml`:
+
+```yaml
+skipSteps:
+  - "browser-verification"  # Skip browser verification in CI
+additionalSteps:
+  - name: "Legacy adapter check"
+    after: "implementation"
+    instructions: |
+      Verify changes work with legacy adapter in src/adapters/legacy/
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Board Management" icon="table" href="/concepts/board-management">
+    Deep dive into the board-init, board-fill, board-pickup, board-refresh workflow
+  </Card>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Learn which agents commands delegate to
+  </Card>
+  <Card title="Skills" icon="wand-magic-sparkles" href="/concepts/skills">
+    Understand which skills commands invoke
+  </Card>
+  <Card title="Planning" icon="lightbulb" href="/guides/planning">
+    Master the feature-plan, bug-plan, refactor-plan workflow
+  </Card>
+</CardGroup>

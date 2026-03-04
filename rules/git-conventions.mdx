@@ -1,0 +1,406 @@
+---
+title: Git Conventions
+description: Conventional Commits, branch naming, and semantic versioning integration for consistent version control
+---
+
+# Git Conventions
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-git-conventions`
+
+Defines Git commit message and branching conventions following the Conventional Commits specification for semantic versioning integration and automated changelog generation.
+
+## Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+### Format
+
+```
+type(scope)?: description
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type | Description | Version Bump |
+|------|-------------|-------------|
+| `feat` | New feature | Minor (0.x.0) |
+| `fix` | Bug fix | Patch (0.0.x) |
+| `chore` | Maintenance, dependencies, config | None |
+| `docs` | Documentation only | None |
+| `refactor` | Code change that neither fixes a bug nor adds a feature | None |
+| `test` | Adding or updating tests | None |
+| `ci` | CI/CD configuration changes | None |
+| `perf` | Performance improvement | Patch |
+| `build` | Build system changes | None |
+| `style` | Formatting, whitespace (no logic change) | None |
+
+### Subject Line Rules
+
+- **Imperative mood:** "add feature" not "added feature" or "adds feature"
+- **Lowercase:** Start with lowercase letter
+- **No period:** No trailing period
+- **Max 72 characters**
+
+### Examples
+
+```bash
+# Feature
+feat(auth): add OAuth2 login support
+
+# Bug fix
+fix(api): handle null user in profile endpoint
+
+# Breaking change
+feat(api)!: remove deprecated /v1/users endpoint
+
+BREAKING CHANGE: /v1/users endpoint removed. Use /v2/users instead.
+
+# Multiple paragraphs in body
+refactor(database): migrate to Prisma ORM
+
+This refactor replaces Knex with Prisma for better type safety
+and developer experience.
+
+The migration maintains backward compatibility with existing
+queries. All tests pass.
+
+Closes #123
+```
+
+### Breaking Changes
+
+Indicate breaking changes in two ways:
+
+1. **Add `!` after type/scope:**
+   ```
+   feat(api)!: remove v1 endpoints
+   ```
+
+2. **Add `BREAKING CHANGE:` footer:**
+   ```
+   feat(api): update user schema
+
+   BREAKING CHANGE: `email` field renamed to `emailAddress`
+   ```
+
+### Reference Issues
+
+Link to issues in footer:
+
+```
+fix(auth): prevent session fixation
+
+Closes #123
+Fixes #456, #789
+Related to #100
+```
+
+### Body Guidelines
+
+- Wrap at **80 characters**
+- Explain **what** and **why**, not **how**
+- Separate from subject with blank line
+
+### Example with Full Context
+
+```
+feat(quest): add bonus XP for streak completion
+
+Users who complete quests on consecutive days now receive
+a 15% XP bonus. The bonus is calculated as:
+
+  bonus = baseXP * 0.15 * streakDays
+
+The streak resets if a day is missed. Streak progress is
+stored in the user's profile document.
+
+Closes #234
+```
+
+## Branch Naming
+
+### Format
+
+```
+{type}/{short-description}
+```
+
+### Types
+
+Use the same types as commit messages:
+
+- `feat/` — New feature
+- `fix/` — Bug fix
+- `chore/` — Maintenance
+- `refactor/` — Code refactoring
+- `docs/` — Documentation
+- `test/` — Tests
+
+### Examples
+
+```bash
+feat/user-authentication
+feat/oauth2-login
+fix/null-pointer-on-login
+fix/session-timeout-bug
+chore/update-dependencies
+chore/upgrade-node-18
+refactor/extract-adapter-base
+refactor/simplify-auth-middleware
+docs/add-api-examples
+test/add-e2e-checkout-flow
+```
+
+### Rules
+
+- **Lowercase with hyphens:** `feat/user-auth` not `Feat/User_Auth`
+- **Descriptive but concise:** 2-5 words
+- **No issue numbers in branch name:** Use commit messages to reference issues
+
+## Semantic Versioning Integration
+
+### Version Bumps
+
+Commit types trigger semantic version bumps:
+
+| Commit | Version Change | Example |
+|--------|----------------|----------|
+| `fix:` | Patch | 1.2.3 → 1.2.4 |
+| `feat:` | Minor | 1.2.3 → 1.3.0 |
+| `feat!:` or `BREAKING CHANGE:` | Major | 1.2.3 → 2.0.0 |
+| `chore:`, `docs:`, etc. | None | 1.2.3 (unchanged) |
+
+### Automated Changelog
+
+Generate changelog from conventional commits:
+
+```bash
+npx conventional-changelog -p angular -i CHANGELOG.md -s
+```
+
+Example output:
+
+```markdown
+# [2.0.0](https://github.com/user/repo/compare/v1.2.3...v2.0.0) (2026-03-04)
+
+### Features
+
+* **auth:** add OAuth2 support ([abc123](https://github.com/user/repo/commit/abc123))
+
+### Bug Fixes
+
+* **api:** handle null user ([def456](https://github.com/user/repo/commit/def456))
+
+### BREAKING CHANGES
+
+* **api:** /v1/users endpoint removed. Use /v2/users instead.
+```
+
+### Release Automation
+
+Use `semantic-release` or `standard-version`:
+
+```bash
+# Analyze commits, bump version, generate changelog, create git tag
+npx semantic-release
+```
+
+```json
+// package.json
+{
+  "scripts": {
+    "release": "standard-version"
+  }
+}
+```
+
+```bash
+npm run release
+# Output:
+# ✓ bumping version in package.json from 1.2.3 to 1.3.0
+# ✓ outputting changes to CHANGELOG.md
+# ✓ committing package.json and CHANGELOG.md
+# ✓ tagging release v1.3.0
+```
+
+## Commit Hooks
+
+### Pre-commit Hook
+
+Run linting and type checking before commit:
+
+```bash
+# .husky/pre-commit
+npm run lint
+npm run typecheck
+```
+
+### Commit Message Validation
+
+Validate commit message format:
+
+```bash
+# .husky/commit-msg
+npx --no -- commitlint --edit "$1"
+```
+
+```javascript
+// commitlint.config.js
+module.exports = {
+  extends: ['@commitlint/config-conventional'],
+  rules: {
+    'type-enum': [
+      2,
+      'always',
+      ['feat', 'fix', 'chore', 'docs', 'refactor', 'test', 'ci', 'perf', 'build', 'style'],
+    ],
+    'subject-case': [2, 'always', 'lower-case'],
+    'subject-max-length': [2, 'always', 72],
+  },
+};
+```
+
+## Best Practices
+
+### Atomic Commits
+
+Each commit should be a single logical change:
+
+```bash
+# ✅ Good: one feature per commit
+git commit -m "feat(auth): add login endpoint"
+git commit -m "feat(auth): add logout endpoint"
+
+# ❌ Bad: multiple unrelated changes
+git commit -m "feat(auth): add login and logout, fix bug in profile, update docs"
+```
+
+### Commit Often
+
+Commit frequently with meaningful messages. Don't wait until end of day.
+
+### Keep Commits Small
+
+Small commits are easier to:
+
+- Review
+- Revert if needed
+- Cherry-pick to other branches
+- Understand in git history
+
+### Write for Others
+
+Commit messages are for future developers (including future you):
+
+```bash
+# ❌ Unclear
+git commit -m "fix stuff"
+
+# ✅ Clear
+git commit -m "fix(auth): prevent session fixation vulnerability"
+```
+
+### Use Imperative Mood
+
+```bash
+# ✅ Imperative mood
+"add feature"
+"fix bug"
+"update docs"
+
+# ❌ Past tense
+"added feature"
+"fixed bug"
+"updated docs"
+
+# ❌ Present tense
+"adds feature"
+"fixes bug"
+"updates docs"
+```
+
+Think: "This commit will [your message]"
+
+## Enforcement
+
+### Git Hooks
+
+```bash
+# Install husky and commitlint
+npm install --save-dev husky @commitlint/cli @commitlint/config-conventional
+
+# Enable git hooks
+npx husky install
+
+# Add commit-msg hook
+npx husky add .husky/commit-msg 'npx --no -- commitlint --edit "$1"'
+```
+
+### CI Validation
+
+```yaml
+# .github/workflows/ci.yml
+- name: Validate commit messages
+  run: npx commitlint --from=HEAD~1 --to=HEAD
+```
+
+### Code Review
+
+**PR review checklist:**
+- [ ] All commits follow Conventional Commits format
+- [ ] Commit messages are clear and descriptive
+- [ ] Breaking changes marked with `!` and `BREAKING CHANGE:` footer
+- [ ] Issue references included where applicable
+- [ ] No "WIP" or "fix typo" commits (squash before merge)
+
+### Pre-merge Squashing
+
+For feature branches with many small commits, squash before merge:
+
+```bash
+# Interactive rebase to squash commits
+git rebase -i main
+
+# Or use GitHub's "Squash and merge" button
+```
+
+Ensure the final commit message follows Conventional Commits.
+
+## Example Workflow
+
+```bash
+# 1. Create feature branch
+git checkout -b feat/oauth2-login
+
+# 2. Make changes and commit
+git add src/auth/oauth.ts
+git commit -m "feat(auth): add OAuth2 provider interface"
+
+# 3. Add tests
+git add tests/auth/oauth.test.ts
+git commit -m "test(auth): add OAuth2 provider tests"
+
+# 4. Update docs
+git add docs/auth.md
+git commit -m "docs(auth): document OAuth2 setup"
+
+# 5. Push and create PR
+git push -u origin feat/oauth2-login
+gh pr create --title "feat(auth): add OAuth2 login support" --body "Closes #123"
+
+# 6. After PR approved, merge (squash if many commits)
+gh pr merge --squash
+
+# 7. Automated release (via CI)
+npx semantic-release
+# Creates tag v1.3.0, updates CHANGELOG.md
+```
+
+## Related Rules
+
+- [Code Standards](/rules/code-standards) — Linting and type checking before commit

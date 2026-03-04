@@ -1,0 +1,359 @@
+---
+title: "hatch3r validate"
+description: "Validate the canonical .agents/ structure"
+---
+
+## Overview
+
+The `hatch3r validate` command checks your `.agents/` directory structure for errors and potential issues. It validates frontmatter, file structure, references, and configuration to ensure your setup is correct.
+
+## Usage
+
+```bash
+hatch3r validate
+```
+
+No options required - validation runs comprehensive checks automatically.
+
+## What It Validates
+
+### 1. Manifest Structure
+
+- `.agents/hatch.json` exists and is valid JSON
+- Required fields present: `version`, `tools`
+- Managed files exist on disk
+- Model configuration is valid
+- Customization files reference real agents
+
+### 2. Directory Structure
+
+**Required directories:**
+- `.agents/agents/` - Agent definitions
+- `.agents/skills/` - Skills directory
+- `.agents/rules/` - Rules directory
+
+**Optional directories:**
+- `.agents/commands/` - Commands
+- `.agents/prompts/` - Prompts
+- `.agents/mcp/` - MCP configuration
+- `.agents/policy/` - Policies
+- `.agents/github-agents/` - GitHub agents
+
+### 3. Markdown Files
+
+**Frontmatter validation:**
+- All `.md` files start with `---`
+- Frontmatter has closing `---`
+- Contains required `id` field
+- Contains required `type` field
+
+**Example valid frontmatter:**
+```yaml
+---
+id: code-reviewer
+type: agent
+name: Code Reviewer
+description: Reviews code for quality
+---
+```
+
+### 4. Skill Directories
+
+- Skill directories contain `SKILL.md` file
+- Skill structure follows conventions
+
+### 5. Hooks Configuration
+
+If hooks feature is enabled:
+
+- `.agents/hooks/` directory exists
+- Hook files have valid frontmatter
+- Referenced agents exist in `.agents/agents/`
+- Agent references use correct naming: `hatch3r-{agent-id}.md`
+
+**Example hook validation:**
+```yaml
+---
+id: pre-commit
+agent: code-reviewer  # Must match hatch3r-code-reviewer.md
+event: pre-commit
+---
+```
+
+### 6. MCP Configuration
+
+If MCP feature is enabled:
+
+- `.agents/mcp/mcp.json` exists
+- File is valid JSON
+- Contains `mcpServers` key
+- Server configurations are valid
+
+### 7. Model Configuration
+
+- `models.default` is a string (if set)
+- `models.agents.*` values are strings
+- Agent model overrides reference valid agents
+
+### 8. Managed Files
+
+- Files tracked in `managedFiles` array exist
+- Files follow naming conventions:
+  - Start with `hatch3r-` prefix, or
+  - Are known shared files (`.cursorrules`, `CLAUDE.md`, etc.)
+
+## Validation Levels
+
+### Errors
+
+Critical issues that must be fixed:
+
+- Missing `.agents/hatch.json`
+- Invalid JSON in configuration files
+- Missing required directories
+- Invalid frontmatter syntax
+- Broken agent references in hooks
+- Invalid model configuration
+
+**Exit code:** 1
+
+### Warnings
+
+Non-critical issues that should be addressed:
+
+- Missing optional directories
+- Files without frontmatter
+- Missing frontmatter fields
+- Managed files not following naming convention
+- Customization files for non-existent agents
+- Empty hook directories when hooks enabled
+
+**Exit code:** 0 (unless errors also present)
+
+## Output Examples
+
+### All Checks Pass
+
+```
+✓ Validating .agents/ structure...
+
+╭─ Validation ──────────────────────────────────╮
+│                                               │
+│  All checks passed                            │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+### With Warnings
+
+```
+✓ Validating .agents/ structure...
+
+⚠ Missing 'id' in frontmatter: .agents/agents/my-agent.md
+⚠ Optional directory missing: .agents/commands/
+⚠ Hook directory missing SKILL.md: .agents/skills/my-skill/
+
+╭─ Validation passed ───────────────────────────╮
+│                                               │
+│  ✔ 0 errors                                   │
+│  ⚠ 3 warning(s)                               │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+### With Errors
+
+```
+✗ Validating .agents/ structure...
+
+✖ Missing .agents/hatch.json manifest
+✖ Required directory missing: .agents/agents/
+✖ Invalid JSON in .agents/mcp/mcp.json
+✖ Hook "pre-commit.md" references agent "reviewer" but .agents/agents/hatch3r-reviewer.md does not exist
+
+⚠ Missing frontmatter: .agents/rules/style.md
+
+╭─ Validation failed ───────────────────────────╮
+│                                               │
+│  ✖ 4 error(s)                                 │
+│  ⚠ 1 warning(s)                               │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+## Common Errors
+
+### Missing Frontmatter
+
+```
+⚠ Missing frontmatter: .agents/agents/my-agent.md
+```
+
+**Fix:** Add frontmatter at the top of the file:
+```yaml
+---
+id: my-agent
+type: agent
+---
+```
+
+### Invalid Frontmatter
+
+```
+✖ Invalid frontmatter (no closing ---): .agents/agents/my-agent.md
+```
+
+**Fix:** Ensure frontmatter has closing delimiter:
+```yaml
+---
+id: my-agent
+type: agent
+---  ← Add this
+```
+
+### Broken Hook Reference
+
+```
+✖ Hook "pre-commit.md" references agent "reviewer" but .agents/agents/hatch3r-reviewer.md does not exist
+```
+
+**Fix:** Either:
+1. Create the missing agent file, or
+2. Fix the reference in the hook:
+```yaml
+---
+agent: code-reviewer  # Use correct agent ID
+---
+```
+
+### Invalid MCP JSON
+
+```
+✖ Invalid JSON in .agents/mcp/mcp.json
+```
+
+**Fix:** Validate and fix JSON syntax:
+```bash
+jq . .agents/mcp/mcp.json
+```
+
+## Examples
+
+### Basic Validation
+
+```bash
+hatch3r validate
+```
+
+Runs all validation checks.
+
+### Validate After Changes
+
+```bash
+# Make changes
+vim .agents/agents/my-agent.md
+
+# Validate
+hatch3r validate
+
+# If valid, sync
+hatch3r validate && hatch3r sync
+```
+
+### Pre-Commit Hook
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+if [ -f .agents/hatch.json ]; then
+  hatch3r validate || exit 1
+fi
+```
+
+### CI/CD Integration
+
+```yaml
+# .github/workflows/validate.yml
+name: Validate Agents
+
+on: [push, pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm install -g hatch3r
+      - run: hatch3r validate
+```
+
+## When to Validate
+
+Run validation:
+
+- After modifying files in `.agents/`
+- Before committing changes
+- After adding new agents or skills
+- After updating hook configurations
+- Before running `hatch3r sync`
+- In CI/CD pipelines
+- After manual edits to `.agents/hatch.json`
+
+## Validation Workflow
+
+```bash
+# 1. Make changes
+vim .agents/agents/new-agent.md
+
+# 2. Validate structure
+hatch3r validate
+
+# 3. Fix any errors
+# (repeat until validation passes)
+
+# 4. Sync to tools
+hatch3r sync
+
+# 5. Check status
+hatch3r status
+
+# 6. Commit
+git add .
+git commit -m "Add new agent"
+```
+
+## Ignoring Warnings
+
+Warnings don't block sync or other operations. To suppress warnings:
+
+1. **Fix the issue** (recommended)
+2. **Accept the warning** (validation still passes)
+3. **Filter output** (for CI):
+   ```bash
+   hatch3r validate 2>&1 | grep -v "⚠"
+   ```
+
+## Prerequisites
+
+- `.agents/` directory must exist
+- Must be run from repository root
+- No specific permissions required (read-only operation)
+
+## Performance
+
+Validation is fast:
+- Scans all `.agents/` files
+- Parses YAML frontmatter
+- Validates JSON configs
+- Checks file references
+
+Typical runtime: {"<"}1 second for standard repos
+
+## See Also
+
+- [init](/cli/init) - Initialize with valid structure
+- [sync](/cli/sync) - Sync after validation passes
+- [status](/cli/status) - Check file sync status
+- [update](/cli/update) - Update templates (then validate)

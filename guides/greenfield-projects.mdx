@@ -1,0 +1,377 @@
+---
+title: Greenfield Projects
+description: Starting new projects from scratch with hatch3r
+---
+
+For new projects (greenfield), hatch3r provides a spec-first workflow that generates complete documentation from your vision before writing any code.
+
+## Overview
+
+The greenfield workflow:
+
+1. **Initialize** — Set up hatch3r
+2. **Generate specs** — Use `project-spec` to create documentation
+3. **Create roadmap** — Use `roadmap` to plan phases
+4. **Fill board** — Generate GitHub issues with `board-fill`
+5. **Implement** — Use `board-pickup` to build features
+
+## 1. Initialize Your Project
+
+Start with an empty repository or create a new one:
+
+<Steps>
+  <Step title="Create repository">
+    ```bash
+    mkdir my-project
+    cd my-project
+    git init
+    npm init -y  # or your package manager
+    ```
+  </Step>
+  
+  <Step title="Install hatch3r">
+    ```bash
+    npx hatch3r init
+    ```
+  </Step>
+  
+  <Step title="Select tools">
+    Choose which coding tools you use:
+    - Cursor
+    - GitHub Copilot
+    - Claude Code
+    - OpenCode
+    - Windsurf
+    - Amp
+    - Codex CLI
+    - Gemini CLI
+    - Cline / Roo Code
+  </Step>
+  
+  <Step title="Configure MCP servers">
+    Select which MCP servers to enable:
+    - GitHub (repos, issues, PRs, projects)
+    - Context7 (library documentation)
+    - Filesystem (project files)
+    - Playwright (browser automation)
+    - Brave Search (web research)
+  </Step>
+</Steps>
+
+## 2. Generate Project Specs
+
+Run the `project-spec` command to generate complete documentation:
+
+### What project-spec Does
+
+project-spec spawns 7 parallel researcher sub-agents:
+
+<CardGroup cols={2}>
+  <Card title="Stack Researcher" icon="layer-group">
+    Recommends languages, frameworks, databases, and infrastructure calibrated to your company stage
+  </Card>
+  
+  <Card title="Feature Researcher" icon="puzzle-piece">
+    Breaks your vision into features organized by domain/module with priority ordering
+  </Card>
+  
+  <Card title="Architecture Researcher" icon="diagram-project">
+    Designs system architecture, data flows, and integration points
+  </Card>
+  
+  <Card title="Pitfalls Researcher" icon="triangle-exclamation">
+    Identifies risks, anti-patterns, security concerns, and scalability bottlenecks
+  </Card>
+  
+  <Card title="UX Researcher" icon="user">
+    Analyzes user journeys, accessibility requirements, and visual design direction
+  </Card>
+  
+  <Card title="Business Model Researcher" icon="chart-line">
+    Validates business model, researches competitors, and recommends GTM strategy
+  </Card>
+  
+  <Card title="Production Researcher" icon="server">
+    Designs infrastructure, scaling strategy, observability, and cost modeling
+  </Card>
+</CardGroup>
+
+### Running project-spec
+
+<Steps>
+  <Step title="Invoke the command">
+    Run `project-spec` in your coding tool (e.g., Cursor command palette)
+  </Step>
+  
+  <Step title="Answer discovery questions">
+    project-spec will ask about:
+    
+    **Core Vision:**
+    - Project name
+    - Vision and purpose (one paragraph)
+    - Target platforms (web, mobile, CLI, API, etc.)
+    - Key user personas and goals
+    - Known constraints (budget, timeline, tech mandates)
+    
+    **Company Stage:**
+    - Company stage (pre-revenue, early-revenue, growth, scale, enterprise)
+    - Team composition and size
+    - Current user/revenue scale
+    - Funding/runway status
+    - Regulatory/compliance needs
+    
+    **Business Context:**
+    - Business model type (SaaS, marketplace, platform, etc.)
+    - Revenue model (subscription, transactional, freemium, etc.)
+    - Top 3 competitors
+    - Target market segments / ICP
+    - Key business metrics/KPIs
+  </Step>
+  
+  <Step title="Review researcher outputs">
+    project-spec presents a merged summary of all researcher findings:
+    - Stack recommendations with trade-offs
+    - Feature catalog with complexity estimates
+    - Architecture overview and decisions
+    - Risk register (technical and business)
+    - UX analysis and competitive research
+    - Market sizing and GTM recommendations
+    - Infrastructure blueprint and cost model
+  </Step>
+  
+  <Step title="Confirm specs">
+    Review and adjust the generated specs before writing files:
+    
+    **Technical specs** (`docs/specs/technical/`):
+    - `00_glossary.md` — Stable IDs for entities, events, modules
+    - `01_overview.md` — Technical overview
+    - `02_{module}.md` — One spec per module
+    
+    **Business specs** (`docs/specs/business/`):
+    - `00_business_glossary.md` — Business entities and metrics
+    - `01_business_overview.md` — Business model and market context
+    - `02_{domain}.md` — One spec per business domain
+    - `03_competitive_analysis.md` — Competitor research
+    - `04_gtm_strategy.md` — Go-to-market plan
+    - `05_production_blueprint.md` — Infrastructure and cost model
+  </Step>
+  
+  <Step title="Generate ADRs">
+    project-spec creates Architecture Decision Records (ADRs) for each significant decision:
+    - Framework/language choices
+    - Database selection
+    - Architecture patterns
+    - Authentication approach
+    - Payment/billing architecture
+  </Step>
+  
+  <Step title="Create todo.md">
+    project-spec generates an initial `todo.md` with prioritized items from:
+    - Feature researcher's priority ordering
+    - Pitfalls researcher's risk register
+    - Business model researcher's GTM requirements
+    - Production researcher's infrastructure needs
+  </Step>
+  
+  <Step title="Optional: Generate AGENTS.md">
+    Optionally create a root-level `AGENTS.md` as a "README for agents" with:
+    - Project purpose
+    - Business context
+    - Technology stack
+    - Architecture overview
+    - Key business rules
+    - Conventions
+  </Step>
+</Steps>
+
+### Example Output Structure
+
+```
+my-project/
+├── docs/
+│   ├── specs/
+│   │   ├── business/
+│   │   │   ├── 00_business_glossary.md
+│   │   │   ├── 01_business_overview.md
+│   │   │   ├── 02_user_management.md
+│   │   │   ├── 03_competitive_analysis.md
+│   │   │   ├── 04_gtm_strategy.md
+│   │   │   └── 05_production_blueprint.md
+│   │   └── technical/
+│   │       ├── 00_glossary.md
+│   │       ├── 01_overview.md
+│   │       ├── 02_auth.md
+│   │       ├── 03_api.md
+│   │       └── 04_data-layer.md
+│   └── adr/
+│       ├── 0001_framework-choice.md
+│       ├── 0002_database-selection.md
+│       └── 0003_auth-strategy.md
+├── todo.md
+├── AGENTS.md
+└── .hatch3r-session.json
+```
+
+## 3. Create a Roadmap
+
+Run `roadmap` to generate a phased plan:
+
+<Steps>
+  <Step title="Run roadmap command">
+    Execute `roadmap` in your coding tool
+  </Step>
+  
+  <Step title="Review phases">
+    roadmap breaks work into dependency-ordered phases:
+    - **Phase 1: Foundation** — Core infrastructure and architecture
+    - **Phase 2: MVP Features** — Minimum viable product
+    - **Phase 3: Growth** — Scaling and optimization
+    - **Phase 4: Polish** — UX improvements and nice-to-haves
+  </Step>
+  
+  <Step title="Identify parallel lanes">
+    roadmap identifies work that can proceed in parallel:
+    - Frontend and backend can often progress independently
+    - Infrastructure setup can run alongside feature development
+    - Documentation can be written concurrently
+  </Step>
+  
+  <Step title="Update todo.md">
+    roadmap updates `todo.md` with phased, dependency-ordered items ready for `board-fill`
+  </Step>
+</Steps>
+
+## 4. Fill the Board
+
+Run `board-fill` to create GitHub issues:
+
+<Steps>
+  <Step title="Run board-init first">
+    If you haven't already, run `board-init` to set up your GitHub Projects V2 board
+  </Step>
+  
+  <Step title="Run board-fill">
+    Execute `board-fill` in your coding tool
+  </Step>
+  
+  <Step title="Triage items">
+    board-fill asks clarifying questions about each item:
+    - Scope and boundaries
+    - Value and motivation
+    - Open questions or unknowns
+    - External dependencies
+    - Decomposition needs
+  </Step>
+  
+  <Step title="Review classifications">
+    Confirm type, priority, executor, area, and risk labels
+  </Step>
+  
+  <Step title="Review groupings">
+    Confirm epic groupings and standalone issues
+  </Step>
+  
+  <Step title="Review dependencies">
+    Confirm dependency relationships and implementation order
+  </Step>
+  
+  <Step title="Create issues">
+    board-fill creates GitHub issues and links them to your project board
+  </Step>
+</Steps>
+
+## 5. Implementation Workflow
+
+### Pick Up First Issue
+
+Run `board-pickup` to start implementing:
+
+```bash
+# Auto-select next best issue
+board-pickup
+
+# Or specify an issue
+board-pickup #123
+```
+
+### Development Cycle
+
+<Steps>
+  <Step title="board-pickup selects issue">
+    Based on dependency order, priority, and readiness
+  </Step>
+  
+  <Step title="Create branch">
+    Follows your branching convention
+  </Step>
+  
+  <Step title="Implement feature">
+    Delegates to the appropriate skill:
+    - `feature` — End-to-end feature implementation
+    - `bug-fix` — Minimal fix with regression test
+    - `refactor` — Code quality improvement
+  </Step>
+  
+  <Step title="Run tests">
+    Executes test suite and quality checks
+  </Step>
+  
+  <Step title="Create PR">
+    With descriptive title, body, and self-review checklist
+  </Step>
+  
+  <Step title="Review and merge">
+    Automated review agents provide feedback
+  </Step>
+  
+  <Step title="Repeat">
+    Run `board-pickup` again for the next issue
+  </Step>
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start with MVP scope">
+    Focus on the smallest viable product first. Use the company stage assessment to calibrate recommendations:
+    - **Pre-revenue**: MVP-focused, lean analysis
+    - **Growth**: Scaling-aware, performance considerations
+    - **Enterprise**: Production-hardened, compliance-ready
+  </Accordion>
+  
+  <Accordion title="Validate assumptions early">
+    Use the Business Model Researcher's competitive analysis to validate your assumptions before building.
+  </Accordion>
+  
+  <Accordion title="Document architectural decisions">
+    ADRs capture the context and rationale for decisions. Review and update them as you learn.
+  </Accordion>
+  
+  <Accordion title="Iterate on specs">
+    Specs are living documents. Update them as requirements change or implementation reveals new constraints.
+  </Accordion>
+  
+  <Accordion title="Use stable IDs">
+    Reference entities, events, and modules by their stable IDs from the glossary across docs, issues, and code.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow Guide" icon="diagram-project" href="/guides/workflow">
+    Full project lifecycle from init to release
+  </Card>
+  
+  <Card title="Board Fill" icon="clipboard-list" href="/guides/workflow#4-fill-the-board">
+    Learn how board-fill creates issues with dependency analysis
+  </Card>
+  
+  <Card title="Documentation Structure" icon="folder-tree" href="/guides/documentation-structure">
+    Understanding docs/specs/ and docs/adr/
+  </Card>
+  
+  <Card title="Customization" icon="wrench" href="/guides/customization">
+    Tailor hatch3r to your project needs
+  </Card>
+</CardGroup>

@@ -1,0 +1,592 @@
+---
+title: Feature Flags
+description: Gradual rollout strategies, kill switches, OpenFeature standard, and stale flag detection
+---
+
+# Feature Flags
+
+**Scope:** Conditional (applies when feature flags are used)  
+**Rule ID:** `hatch3r-feature-flags`
+
+Defines feature flag lifecycle, gradual rollout strategies, kill switches, OpenFeature standard integration, and stale flag detection.
+
+## Flag Lifecycle
+
+### When to Use Flags
+
+- Gradual rollout of user-facing changes
+- A/B testing with tracking
+- Kill switches for operational safety
+
+**Not for:**
+- Configuration values (use environment variables)
+- A/B experiments without tracking
+
+### Naming Convention
+
+```
+FF_{AREA}_{FEATURE}
+```
+
+Examples:
+- `FF_PET_NEW_CELEBRATION`
+- `FF_QUEST_BONUS_XP`
+- `FF_SETTINGS_DARK_MODE`
+
+### Flag Storage
+
+- Store flags in remote config (Firebase Remote Config, LaunchDarkly, Flagsmith)
+- Or user document in backend database
+
+### Flag Evaluation
+
+```typescript
+// Client: evaluate with composable/hook
+const { isEnabled } = useFeatureFlag('FF_PET_NEW_CELEBRATION');
+
+if (isEnabled) {
+  showNewCelebration();
+} else {
+  showOldCelebration();
+}
+
+// Server: evaluate before processing
+const isEnabled = await featureFlags.isEnabled('FF_PET_NEW_CELEBRATION', userId);
+```
+
+### Cleanup Deadline
+
+Every flag has:
+
+- **Owner:** Person responsible for flag lifecycle
+- **Cleanup deadline:** Max 30 days after full rollout
+
+Remove flag code when feature is fully rolled out. No dead branches.
+
+### Default to Disabled
+
+Safe fallback when flag evaluation fails:
+
+```typescript
+const isEnabled = featureFlags.isEnabled('FF_NEW_FEATURE') ?? false;
+```
+
+### Never Gate Security/Privacy Features
+
+Flags must not gate security or privacy features. Those are always on.
+
+```typescript
+// ❌ Never gate security features
+if (featureFlags.isEnabled('FF_ENABLE_ENCRYPTION')) {
+  encryptData();
+}
+
+// ✅ Security always on
+encryptData();
+```
+
+### Document Active Flags
+
+Maintain tracking table in `.cursor/rules` or project specs:
+
+```markdown
+| Flag | Owner | Rollout % | Cleanup Deadline |
+|------|-------|-----------|------------------|
+| `FF_PET_NEW_CELEBRATION` | @alice | 50% | 2026-04-01 |
+| `FF_QUEST_BONUS_XP` | @bob | 100% | 2026-03-15 |
+```
+
+## Gradual Rollout Strategies
+
+### Percentage-Based Rollout
+
+```
+1% → 5% → 25% → 50% → 100%
+```
+
+**Pause and monitor error rates at each step.**
+
+```typescript
+const rolloutPercentage = 25; // 25% rollout
+const hash = hashUserId(userId);
+const isEnabled = (hash % 100) < rolloutPercentage;
+```
+
+**Never skip straight from 1% to 100%.** Each step must hold for a minimum observation window (e.g., 24 hours).
+
+### Cohort-Based Rollout
+
+```typescript
+// Internal team → beta users → general availability
+const cohorts = {
+  internal: user.email.endsWith('@company.com'),
+  beta: user.betaTester === true,
+  general: true,
+};
+
+const isEnabled = cohorts[currentCohort];
+```
+
+### Geographic Rollout
+
+```typescript
+// Enable by region
+const enabledRegions = ['us-west', 'eu-west'];
+const isEnabled = enabledRegions.includes(user.region);
+```
+
+### Device-Type Targeting
+
+```typescript
+// Roll out to web before mobile
+const isEnabled = platform === 'web';
+```
+
+### Automated Rollout Progression
+
+Automate rollout when metrics stay within thresholds:
+
+```typescript
+if (errorRate < 0.01 && latencyP99 < 500) {
+  // Proceed to next rollout percentage
+  updateFlag('FF_NEW_FEATURE', currentPercentage + 5);
+}
+```
+
+## Flag Dependencies
+
+### Parent-Child Relationships
+
+```typescript
+// Child flag requires parent flag
+const parentEnabled = featureFlags.isEnabled('FF_NEW_UI');
+const childEnabled = featureFlags.isEnabled('FF_NEW_UI_DARK_MODE');
+
+const isDarkModeEnabled = parentEnabled && childEnabled;
+```
+
+### Prerequisite Validation
+
+Enforce at evaluation time:
+
+```typescript
+function evaluateFlag(flagKey: string): boolean {
+  const flag = flags[flagKey];
+  
+  // Check prerequisites
+  for (const prereq of flag.prerequisites) {
+    if (!evaluateFlag(prereq)) {
+      return false; // Prerequisite not met
+    }
+  }
+  
+  return flag.enabled;
+}
+```
+
+### Mutual Exclusion Groups
+
+Define flags that must not be active simultaneously:
+
+```typescript
+const mutuallyExclusive = [
+  ['FF_UI_VARIANT_A', 'FF_UI_VARIANT_B'],
+];
+
+// Validate at flag update time
+for (const group of mutuallyExclusive) {
+  const activeInGroup = group.filter(flag => flags[flag].enabled);
+  if (activeInGroup.length > 1) {
+    throw new Error('Mutually exclusive flags active');
+  }
+}
+```
+
+### Document Dependencies
+
+```markdown
+## Flag: FF_NEW_UI_DARK_MODE
+
+**Prerequisites:** `FF_NEW_UI` must be enabled
+
+**Mutual exclusion:** Cannot be active with `FF_OLD_UI_HIGH_CONTRAST`
+```
+
+## Kill Switches
+
+### Purpose
+
+Instantly disable features in production without deployment.
+
+### Naming Convention
+
+```
+KS_{AREA}_{FEATURE}
+```
+
+Examples:
+- `KS_PET_INTERACTIONS`
+- `KS_PAYMENT_PROCESSING`
+
+Distinguish from rollout flags to avoid confusion.
+
+### Permanent Operational Flags
+
+Kill switches are permanent — they do not follow the 30-day cleanup deadline.
+
+### Circuit Breaker Integration
+
+```typescript
+const breaker = new CircuitBreaker(processPayment, {
+  threshold: 0.5,     // 50% error rate
+  timeout: 30000,     // 30s
+  resetTimeout: 60000,
+});
+
+breaker.on('open', () => {
+  // Auto-disable kill switch
+  featureFlags.set('KS_PAYMENT_PROCESSING', false);
+});
+```
+
+### Automatic Rollback Triggers
+
+```typescript
+// Monitor error rate
+if (errorRate > 0.02 && duration > 5 * 60 * 1000) {
+  // 5xx rate > 2% for 5 minutes
+  featureFlags.set('KS_NEW_FEATURE', false);
+  alert('Kill switch activated: KS_NEW_FEATURE');
+}
+```
+
+### Test Kill Switch Behavior
+
+Verify feature degrades gracefully on disable:
+
+```typescript
+test('gracefully degrades when kill switch disabled', () => {
+  featureFlags.set('KS_NEW_FEATURE', false);
+  
+  const result = performAction();
+  
+  expect(result.usedFallback).toBe(true);
+  expect(result.error).toBeUndefined();
+});
+```
+
+### Incident Response Runbook
+
+Include kill switch activation in runbooks:
+
+```markdown
+## Runbook: High Error Rate on Payment Processing
+
+1. Check error logs for root cause
+2. If unable to fix immediately, activate kill switch:
+   ```
+   featureFlags.set('KS_PAYMENT_PROCESSING', false)
+   ```
+3. Verify fallback to legacy payment flow
+4. File incident report
+```
+
+## Stale Flag Detection
+
+### Alert on Cleanup Deadline
+
+Automate alerts when flag exceeds cleanup deadline:
+
+```typescript
+for (const flag of flags) {
+  if (flag.cleanupDeadline < Date.now()) {
+    notify(flag.owner, `Flag ${flag.key} is past cleanup deadline`);
+  }
+}
+```
+
+### Track Evaluation Frequency
+
+A flag evaluated zero times in 14 days is likely stale:
+
+```typescript
+const lastEvaluated = flagMetrics[flagKey].lastEvaluatedAt;
+if (Date.now() - lastEvaluated > 14 * 24 * 60 * 60 * 1000) {
+  console.warn(`Flag ${flagKey} not evaluated in 14 days`);
+}
+```
+
+### Detect Always-On/Always-Off Flags
+
+```typescript
+// Always-on flag (100% rollout for > 30 days)
+if (flag.rolloutPercentage === 100 && flag.fullRolloutDate < Date.now() - 30 * 24 * 60 * 60 * 1000) {
+  console.warn(`Flag ${flag.key} is always-on for > 30 days. Remove flag code.`);
+}
+
+// Always-off flag (never enabled)
+if (flag.rolloutPercentage === 0 && !flag.everEnabled) {
+  console.warn(`Flag ${flag.key} is always-off. Remove flag.`);
+}
+```
+
+### Lint for Flag References
+
+Flag identifiers with no code references are dead:
+
+```bash
+grep -r "FF_OLD_FEATURE" src/
+# No results = flag is unused, remove from config
+```
+
+### Cleanup Workflow
+
+1. Alert on stale flag
+2. Owner acknowledges
+3. Create PR to remove flag code
+4. Delete flag from config
+5. Verify in production
+
+### Hard Cap on Active Flags
+
+Enforce max 30 active flags per service:
+
+```typescript
+if (Object.keys(flags).length >= 30) {
+  throw new Error('Active flag limit reached. Clean up stale flags before adding new ones.');
+}
+```
+
+## Flag Audit & Compliance
+
+### Log State Changes
+
+```typescript
+logger.info('Flag state changed', {
+  flagKey: 'FF_NEW_FEATURE',
+  previousValue: 25,
+  newValue: 50,
+  changedBy: user.id,
+  reason: 'Gradual rollout progression',
+  timestamp: new Date(),
+});
+```
+
+### Approval Workflows
+
+Require approval for production flag changes:
+
+```typescript
+if (environment === 'production' && !change.approvedBy) {
+  throw new Error('Production flag changes require approval');
+}
+```
+
+### Compliance-Sensitive Flags
+
+Tag flags affecting data collection, consent, or PII:
+
+```typescript
+const flag = {
+  key: 'FF_ANALYTICS_TRACKING',
+  complianceSensitive: true,
+  requiresLegalReview: true,
+};
+```
+
+### Retain Audit Logs
+
+Retain for project's compliance period (minimum 90 days).
+
+### Rollback History
+
+Store last N states for easy reversion:
+
+```typescript
+const history = [
+  { value: 100, timestamp: '2026-03-01', changedBy: 'alice' },
+  { value: 50, timestamp: '2026-02-28', changedBy: 'alice' },
+  { value: 25, timestamp: '2026-02-27', changedBy: 'bob' },
+];
+
+// Rollback to previous state
+featureFlags.set(flagKey, history[1].value);
+```
+
+## Testing with Flags
+
+### Test Both States
+
+```typescript
+test('feature works when flag enabled', () => {
+  featureFlags.set('FF_NEW_FEATURE', true);
+  expect(performAction()).toBe('new behavior');
+});
+
+test('feature works when flag disabled', () => {
+  featureFlags.set('FF_NEW_FEATURE', false);
+  expect(performAction()).toBe('old behavior');
+});
+
+test('gracefully handles flag evaluation failure', () => {
+  featureFlags.simulateFailure(true);
+  expect(performAction()).toBe('safe fallback');
+});
+```
+
+### Parameterized Tests
+
+```typescript
+test.each([
+  { flagEnabled: true, expected: 'new' },
+  { flagEnabled: false, expected: 'old' },
+])('behavior when flag is $flagEnabled', ({ flagEnabled, expected }) => {
+  featureFlags.set('FF_NEW_FEATURE', flagEnabled);
+  expect(getBehavior()).toBe(expected);
+});
+```
+
+### CI Flag Matrix
+
+Run tests with critical flags in both states:
+
+```yaml
+matrix:
+  flag:
+    - FF_CRITICAL_FEATURE=true
+    - FF_CRITICAL_FEATURE=false
+steps:
+  - run: npm test
+    env:
+      FLAG_CONFIG: ${{ matrix.flag }}
+```
+
+### Local Overrides in Tests
+
+```typescript
+// Don't depend on remote flag config in tests
+beforeEach(() => {
+  featureFlags.setLocal({
+    'FF_NEW_FEATURE': true,
+    'FF_BETA_FEATURE': false,
+  });
+});
+```
+
+### Verify Unreachable Code After Rollout
+
+Before removing flag code:
+
+```typescript
+// Add monitoring to verify flag-off path is unreachable
+if (!featureFlags.isEnabled('FF_NEW_FEATURE')) {
+  logger.warn('Flag-off path reached (should be unreachable)');
+  // If this log never appears in 7 days, safe to remove
+}
+```
+
+## OpenFeature Standard
+
+Use [OpenFeature](https://openfeature.dev) SDK for provider-agnostic feature flag evaluation.
+
+### Provider Interface
+
+```typescript
+import { OpenFeature } from '@openfeature/server-sdk';
+import { LaunchDarklyProvider } from '@openfeature/launchdarkly-server-provider';
+
+// Register provider at startup
+OpenFeature.setProvider(new LaunchDarklyProvider(sdkKey));
+
+// Or use in-memory provider for testing
+import { InMemoryProvider } from '@openfeature/server-sdk';
+OpenFeature.setProvider(new InMemoryProvider({
+  'FF_NEW_FEATURE': { value: true, variant: 'on' },
+}));
+```
+
+### Evaluation Context
+
+Carries ambient information for targeting:
+
+```typescript
+const client = OpenFeature.getClient();
+
+const context = {
+  targetingKey: user.id,
+  email: user.email,
+  role: user.role,
+  region: user.region,
+};
+
+const isEnabled = await client.getBooleanValue(
+  'FF_NEW_FEATURE',
+  false,  // Default value
+  context
+);
+```
+
+### Context Merging
+
+Three levels:
+
+1. **API-level (global):** Environment, app version
+2. **Client-level:** Service name
+3. **Invocation-level:** User ID, request-specific attributes
+
+Invocation > client > API precedence.
+
+### Hooks
+
+Add cross-cutting behavior:
+
+```typescript
+import { Hook } from '@openfeature/server-sdk';
+
+class MetricsHook implements Hook {
+  after(hookContext, evaluationDetails) {
+    metrics.increment('feature_flag.evaluation', {
+      flagKey: hookContext.flagKey,
+      variant: evaluationDetails.variant,
+    });
+  }
+}
+
+OpenFeature.addHooks(new MetricsHook());
+```
+
+### Migration from Direct Provider SDKs
+
+Replace direct SDK calls with OpenFeature:
+
+```typescript
+// ❌ Direct provider SDK
+import { ldClient } from './launchdarkly';
+const isEnabled = await ldClient.variation('FF_NEW_FEATURE', user, false);
+
+// ✅ OpenFeature
+import { OpenFeature } from '@openfeature/server-sdk';
+const client = OpenFeature.getClient();
+const isEnabled = await client.getBooleanValue('FF_NEW_FEATURE', false, { targetingKey: user.id });
+```
+
+Enables switching providers without changing application code.
+
+## Enforcement
+
+**Code review checklist:**
+- [ ] Flag named with `FF_` or `KS_` prefix
+- [ ] Owner and cleanup deadline documented
+- [ ] Default value is safe fallback
+- [ ] Both flag states tested
+- [ ] Flag not gating security/privacy features
+
+**Automated checks:**
+- Alert on flags past cleanup deadline
+- Detect always-on flags > 30 days
+- Lint for unused flag references
+
+## Related Rules
+
+- [Testing Standards](/rules/testing) — Test both flag states
+- [Observability](/rules/observability) — Flag evaluation metrics

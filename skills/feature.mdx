@@ -1,0 +1,167 @@
+---
+title: Feature Implementation
+description: End-to-end feature implementation workflow covering data model, domain logic, API, and UI as a vertical slice. Use when implementing new features or working on feature request issues.
+---
+
+## Overview
+
+The feature implementation skill guides agents through complete vertical slice delivery - from data model to UI. It emphasizes test-first approaches when acceptance criteria are specific and testable.
+
+## Quick Start
+
+```
+Task Progress:
+- [ ] Step 1: Read the issue and all relevant specs
+- [ ] Step 2: Produce an implementation plan
+- [ ] Step 2b: Test-first approach (TDD alternative — optional)
+- [ ] Step 3: Implement the vertical slice
+- [ ] Step 4: Write tests (unit, integration, security, E2E)
+- [ ] Step 5: Verify quality gates
+- [ ] Step 5b: Browser verification (if UI)
+- [ ] Step 6: Open PR
+```
+
+## Step 1: Read Inputs
+
+Parse the issue body for:
+
+- **Problem/goal** - What user need does this address?
+- **Proposed solution** - High-level approach
+- **Acceptance criteria** - Specific, testable outcomes
+- **Scope** - What's in/out of scope
+- **UX notes** - User experience requirements
+- **Edge cases** - Known boundary conditions
+- **Security considerations** - Privacy and security requirements
+- **Rollout plan** - Feature flags or gradual rollout
+
+Read relevant project documentation:
+
+- Glossary for stable IDs
+- User flows for expected behavior
+- Data model for schema patterns
+- Event model for event types
+- Privacy and monetization specs as applicable
+
+Review existing code patterns in the affected area for consistency.
+
+## Step 2: Implementation Plan
+
+Before coding, output:
+
+- **Approach** - High-level strategy
+- **Files to create/modify** - List with what changes
+- **Data model changes** - New collections/fields if any
+- **Event changes** - New event types if any
+- **Entitlement changes** - New gates if any
+- **Risks** - What could go wrong
+- **Phasing** - How to split into PRs if large
+
+## Step 2b: Test-First Approach (TDD Alternative)
+
+When acceptance criteria are specific and testable, write tests BEFORE implementing:
+
+### When to Use TDD
+
+Prefer TDD when:
+- Acceptance criteria are specific and quantifiable
+- Building a well-defined API, service, or utility
+- Working in a domain with complex business logic
+
+Use standard flow (implement → test) when:
+- Acceptance criteria are exploratory ("improve UX of...")
+- Heavy UI work where visual verification is primary
+- Prototyping or spike work
+
+### TDD Workflow
+
+1. **Write acceptance tests** from the issue's acceptance criteria. Each criterion becomes at least one test.
+2. **Write unit test shells** for planned functions/modules from the implementation plan.
+3. **Run all new tests** - Confirm they fail (proves they're testing real behavior, not tautologies).
+4. **Implement the vertical slice** (Step 3) to make tests pass incrementally.
+5. **Add edge case tests** as you discover them during implementation.
+
+## Step 3: Implement
+
+Deliver a complete vertical slice:
+
+- **Data model** - Database collections, fields, security rules
+- **Domain logic** - Business rules and state management
+- **API** - Backend endpoints or service functions
+- **UI** - Components, pages, and user flows
+
+### Best Practices
+
+- Use stable IDs from the project glossary
+- If database/backend data is needed, include security rules updates
+- If feature is gated, enforce entitlements client-side AND server-side
+- If new events, follow the project's event schema
+- Keep changes focused on acceptance criteria (no scope creep)
+
+## Step 4: Tests
+
+Write comprehensive test coverage:
+
+- **Unit tests** - All new business logic
+- **Integration tests** - Cross-module interactions
+- **Security rules tests** - If database collections/rules modified
+- **Contract tests** - If new event types or API contracts
+- **E2E tests** - If user-facing flow
+
+## Step 5: Verify
+
+Run quality gates:
+
+```bash
+npm run lint && npm run typecheck && npm run test
+```
+
+All checks must pass before proceeding.
+
+## Step 5b: Browser Verification (if UI)
+
+Skip this step if the feature has no user-facing UI changes.
+
+1. Ensure the dev server is running. If not, start it in the background.
+2. Navigate to the page or surface affected by the new feature.
+3. Walk through the acceptance criteria visually - confirm the feature renders and behaves correctly.
+4. Interact with new UI elements: click, type, trigger state transitions.
+5. Check the browser console for errors or warnings.
+6. If the feature is responsive, test at different viewport sizes.
+7. Capture screenshots showing the feature working as expected.
+
+## Step 6: Open PR
+
+Use the project's PR template. Include:
+
+- Feature summary and motivation
+- Implementation approach
+- Screenshots/recordings (if UI)
+- Test evidence
+- Rollout plan (feature flag if specified)
+
+## Required Agent Delegation
+
+You MUST spawn these agents via the Task tool (`subagent_type: "generalPurpose"`) at the appropriate points:
+
+- **`hatch3r-researcher`** - MUST spawn before implementation with modes `codebase-impact`, `feature-design`, `architecture`. Skip only for trivially simple features (`risk:low` AND `priority:p3`).
+- **`hatch3r-implementer`** - MUST spawn one per sub-issue when the feature is decomposed into multiple tasks. Each implementer receives its own sub-issue context.
+- **`hatch3r-reviewer`** - MUST spawn after implementation for code review before PR creation.
+
+## Related Skills
+
+- **[QA Validation](/skills/qa-validation)** - Use for end-to-end verification of the implemented feature
+- **[PR Creation](/skills/pr-creation)** - Pull request creation workflow
+- **[Issue Workflow](/skills/issue-workflow)** - Parent workflow from issue to PR
+
+## Definition of Done
+
+- [ ] All acceptance criteria met
+- [ ] Unit + integration tests cover new logic
+- [ ] Security rules tested (if data model changed)
+- [ ] Entitlement gates enforced server-side (if gated)
+- [ ] Accessibility requirements met (if UI)
+- [ ] Browser-verified against acceptance criteria (if UI)
+- [ ] Performance budgets maintained
+- [ ] Privacy invariants respected
+- [ ] Rollout plan documented
+- [ ] Relevant spec docs updated

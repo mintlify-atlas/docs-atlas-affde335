@@ -1,0 +1,114 @@
+---
+title: Command Customization
+description: Create and manage per-command customization files for description overrides, enable/disable control, and project-specific markdown instructions. Use when tailoring command behavior to project-specific needs.
+---
+
+## Overview
+
+The command customization skill guides you through creating and managing customization files that tailor hatch3r commands to your project's specific workflows.
+
+## Quick Start
+
+```
+Task Progress:
+- [ ] Step 1: Identify which command to customize
+- [ ] Step 2: Determine customization needs
+- [ ] Step 3: Create the customization files
+- [ ] Step 4: Sync to propagate changes
+- [ ] Step 5: Verify the customized output
+```
+
+## Step 1: Identify Command
+
+Determine which hatch3r command needs customization:
+
+- Review the commands in `.agents/commands/` and their default behavior
+- Identify gaps between default behavior and project needs
+- Check for existing customization files in `.hatch3r/commands/`
+
+## Step 2: Determine Customization Needs
+
+Decide which customization approach to use:
+
+### YAML (`.customize.yaml`) - Structured Overrides
+
+- **Description** - Change how the command is described in adapter outputs
+- **Enabled** - Set to `false` to disable the command entirely
+
+### Markdown (`.customize.md`) - Free-Form Instructions
+
+- Project-specific workflow steps
+- Additional prerequisites or constraints
+- Custom deployment or release procedures
+
+## Step 3: Create Customization Files
+
+Create files in `.hatch3r/commands/`:
+
+### For YAML Overrides
+
+```yaml
+# .hatch3r/commands/{command-id}.customize.yaml
+description: "Release workflow with staging validation"
+```
+
+### For Markdown Instructions
+
+Create `.hatch3r/commands/{command-id}.customize.md` with project-specific additions. This content is injected into the managed block under `## Project Customizations`.
+
+## Step 4: Sync
+
+Run `npx hatch3r sync` to propagate customizations to all adapter outputs.
+
+## Step 5: Verify
+
+Confirm customizations appear in adapter output files:
+
+- Check description in adapter outputs (where applicable)
+- Check markdown instructions appear inside the managed block
+- Verify disabled commands are absent from adapter outputs
+
+## Example: Custom Release Workflow
+
+### YAML Override
+
+```yaml
+# .hatch3r/commands/hatch3r-release.customize.yaml
+description: "Release with mandatory staging validation and Sentry deploy tracking"
+```
+
+### Markdown Instructions
+
+```markdown
+# .hatch3r/commands/hatch3r-release.customize.md
+
+## Project-Specific Release Steps
+
+### Pre-Release
+
+1. Ensure staging environment is updated to release candidate
+2. Run full E2E suite on staging (must pass 100%)
+3. Notify #releases channel 30 minutes before deploy
+
+### Post-Deploy
+
+1. Create Sentry release tracking: `sentry-cli releases new vX.Y.Z`
+2. Monitor Sentry for 1 hour post-deploy
+3. Update status page with release notes
+```
+
+After running `npx hatch3r sync`, the release command will include these project-specific steps.
+
+## Related Skills
+
+- **[Agent Customization](/skills/agent-customize)** - Customize agent behavior
+- **[Skill Customization](/skills/skill-customize)** - Customize skill workflows
+- **[Rule Customization](/skills/rule-customize)** - Customize rule scope and content
+- **[Release](/skills/release)** - Base release workflow
+
+## Definition of Done
+
+- [ ] Customization files created in `.hatch3r/commands/`
+- [ ] `npx hatch3r sync` completes without errors
+- [ ] Adapter output files reflect the customizations
+- [ ] Customization files committed to the repository

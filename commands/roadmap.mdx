@@ -1,0 +1,179 @@
+---
+title: Roadmap
+description: Generate dual-lens phased roadmap from specs and vision using parallel researcher sub-agents
+---
+
+Generate a dependency-aware, priority-ordered roadmap with business and technical milestones in parallel. Outputs to todo.md in board-fill format.
+
+## Purpose
+
+Transform specs and vision into an executable roadmap:
+- Business milestones (revenue, user acquisition, market timing, compliance)
+- Technical milestones (infrastructure, production hardening, debt paydown)
+- Dependency-aware phasing with parallel work lanes
+- Board-ready todo.md with `[BIZ]`/`[TECH]`/`[BOTH]` tags
+- Stage-calibrated prioritization
+
+## When to Use
+
+- After running `project-spec` or `codebase-map`
+- Planning development phases for a new or existing project
+- Aligning business goals with technical prerequisites
+- Estimating timelines and resource needs
+- Preparing for fundraising or stakeholder presentations
+- Organizing backlog for team execution
+
+## What It Generates
+
+- **todo.md** - Phased roadmap in board-fill format with business and technical items
+- **.hatch3r-session.json** - Updated with roadmap goals and context
+- **AGENTS.md** - Optional project README with current roadmap focus
+
+## Sub-Agent Architecture
+
+Spawns 2 parallel researcher sub-agents using the Task tool:
+
+<Steps>
+  <Step title="Business Priority Researcher">
+    Researches market timing windows, competitive pressure, revenue-impact ordering, regulatory deadlines, and user acquisition channel requirements using web search.
+  </Step>
+  
+  <Step title="Technical Readiness Researcher">
+    Evaluates tech debt velocity impact, infrastructure prerequisites for scaling milestones, production readiness gaps, technical dependencies, and industry benchmarks.
+  </Step>
+</Steps>
+
+## Workflow
+
+<Steps>
+  <Step title="Load Project Context">
+    Reads existing documentation (technical specs, business specs, ADRs, health report, todo.md), loads session context, gathers company stage and business goals.
+  </Step>
+  
+  <Step title="Analyze & Categorize Work">
+    Extracts requirements from specs, ADRs, health report, and GitHub issues. Categorizes by scope (`[BIZ]`/`[TECH]`/`[BOTH]`), domain, type, effort, impact, and dependencies.
+  </Step>
+  
+  <Step title="Spawn Parallel Researchers">
+    Launches business priority and technical readiness researchers with full context, company stage, market pressures, and categorized work items.
+  </Step>
+  
+  <Step title="Generate Dual-Lens Roadmap">
+    Merges research intelligence to build business milestones lane and technical milestones lane. Maps dependencies and identifies parallel work lanes.
+  </Step>
+  
+  <Step title="Generate todo.md">
+    Produces priority-ordered backlog with items tagged, dependencies noted, and source specs referenced. Handles existing todo.md (replace/append/merge).
+  </Step>
+  
+  <Step title="Write Files">
+    After user confirmation, writes todo.md and updates session context. Optionally generates AGENTS.md with roadmap focus.
+  </Step>
+</Steps>
+
+## Priority Tier Rules
+
+| Phase | Label | Business Criteria | Technical Criteria |
+|-------|-------|-------------------|--------------------|
+| P0 | Critical / Launch Blockers | Revenue-blocking features, regulatory deadlines, market windows | Security fixes, data integrity, core infrastructure |
+| P1 | Core Features | Primary value delivery, conversion-critical flows, first GTM channel | Essential integrations, performance baselines, CI/CD |
+| P2 | Important | Secondary features, retention improvements, additional GTM channels | Quality improvements, refactors, testing gaps, monitoring |
+| P3 | Nice to Have | Polish, upsell features, market expansion | Optimizations, non-critical enhancements, developer experience |
+| P4+ | Future Ideas | Long-term market plays, new segments | Long-term architecture evolution, experimental tech |
+
+## Business Milestones Lane
+
+- **Revenue milestones**: Launch, first paying customer, MRR targets, break-even
+- **User acquisition milestones**: Beta launch, public launch, growth targets, market expansion
+- **Market timing milestones**: Competitive windows, seasonal peaks, conference launches
+- **Compliance milestones**: Certifications, audits, regulatory deadlines
+- **Fundraising milestones**: Metrics needed for next round, demo-ready state
+
+## Technical Milestones Lane
+
+- **Infrastructure readiness**: MVP infra, scaling infra, multi-region, enterprise-grade
+- **Production hardening**: Monitoring, alerting, incident response, SLA readiness
+- **Technical debt paydown**: Prioritized by business impact (velocity improvement)
+- **Platform capabilities**: APIs, integrations, extensibility, developer experience
+- **Security & compliance**: Auth hardening, vulnerability scanning, audit trails
+
+## Stage-Adaptive Prioritization
+
+- **Pre-revenue / Early-revenue**: Prioritizes speed-to-market, front-loads core value delivery and MVP infrastructure, defers polish and scale
+- **Growth**: Prioritizes scaling bottlenecks and retention features, balances new features with production hardening
+- **Scale / Enterprise**: Prioritizes reliability, compliance, and governance, front-loads SLA readiness and security hardening
+
+## Examples
+
+### SaaS Launch Roadmap
+```markdown
+Stage: Pre-revenue
+Next Milestone: Public beta in 8 weeks
+Team: 3 devs, 40 hrs/week each
+
+P0 (4 weeks):
+  [TECH] MVP infrastructure setup (hosting, CI/CD, monitoring)
+  [BIZ] Core value flow (signup → onboarding → aha moment)
+  [BOTH] Authentication & user management
+  [TECH] Payment integration (Stripe)
+
+P1 (4 weeks):
+  [BIZ] Collaboration features (real-time sync)
+  [TECH] Performance optimization (sub-3s page loads)
+  [BIZ] Free → Paid conversion flow
+
+Business Milestones:
+  Week 6: Beta launch (100 users)
+  Week 8: Public launch (payment flow live)
+  Week 12: First $1K MRR
+
+Technical Milestones:
+  Week 2: MVP infra ready
+  Week 5: Performance baseline achieved
+  Week 8: Monitoring & alerting operational
+```
+
+### Growth-Stage Marketplace Roadmap
+```markdown
+Stage: Growth (10K active users)
+Next Milestone: 50K users in 6 months
+Team: 8 devs, 40 hrs/week each
+
+P0 (6 weeks):
+  [TECH] Database scaling (read replicas, connection pooling)
+  [TECH] Caching layer (Redis for hot data)
+  [BIZ] Trust & safety improvements (fraud detection)
+  [BOTH] Mobile app parity with web
+
+P1 (8 weeks):
+  [BIZ] Seller retention features (analytics dashboard)
+  [TECH] Horizontal scaling readiness (stateless services)
+  [BIZ] New payment methods (Apple Pay, Google Pay)
+  [TECH] Observability upgrade (distributed tracing)
+
+Business Milestones:
+  Month 2: Launch mobile app (expand user base)
+  Month 4: Achieve 25K users (growth target)
+  Month 6: Reach 50K users (scaling milestone)
+
+Technical Milestones:
+  Month 1: Database scaling complete (10K → 50K ready)
+  Month 3: Horizontal scaling operational
+  Month 5: Full observability stack live
+```
+
+## Cross-Command Integration
+
+After completion, recommended next steps:
+- **`board-fill`** - Create GitHub issues from todo.md
+- **`board-pickup`** - Start working on highest-priority items
+
+## Key Features
+
+- **Dual-lens milestones**: Business and technical lanes in parallel
+- **Dependency-aware**: Maps business milestones to technical prerequisites
+- **Research-driven**: Uses web search for market intelligence and industry benchmarks
+- **Parallel work lanes**: Identifies independent business and technical tracks
+- **Stage-calibrated**: Prioritization aligned with company maturity
+- **Board-ready output**: todo.md format compatible with `board-fill`
+- **Capacity-aware**: Estimates duration based on team size and availability

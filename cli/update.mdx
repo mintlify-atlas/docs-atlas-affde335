@@ -1,0 +1,273 @@
+---
+title: "hatch3r update"
+description: "Pull latest hatch3r templates with safe merge"
+---
+
+## Overview
+
+The `hatch3r update` command pulls the latest hatch3r templates and safely merges them into your `.agents/` directory. It updates framework-provided files while preserving your customizations.
+
+## Usage
+
+```bash
+hatch3r update [options]
+```
+
+## Options
+
+<ParamField path="--backup" type="boolean" default="true">
+  Create backups before overwriting files. Backups are saved with `.backup` extension.
+  
+  Set to `false` to skip backups:
+  ```bash
+  hatch3r update --backup=false
+  ```
+</ParamField>
+
+## What It Does
+
+The update command performs three main steps:
+
+1. **Updates canonical files** - Copies new hatch3r-prefixed files from the latest templates:
+   - Files starting with `hatch3r-` (e.g., `hatch3r-code-reviewer.md`)
+   - Directories named `hatch3r-*`
+   - Framework-provided content in:
+     - `.agents/agents/`
+     - `.agents/commands/`
+     - `.agents/rules/`
+     - `.agents/skills/`
+     - `.agents/prompts/`
+     - `.agents/github-agents/`
+     - `.agents/mcp/`
+     - `.agents/hooks/`
+   - Updates `.agents/AGENTS.md`
+
+2. **Re-syncs adapter output** - Regenerates tool-specific files using updated templates
+   - Creates backups before overwriting (unless `--backup=false`)
+   - Safely merges managed blocks
+   - Preserves user customizations
+
+3. **Updates manifest** - Bumps `hatch3rVersion` in `.agents/hatch.json` to latest version
+
+## Version Management
+
+Update tracks and manages hatch3r versions:
+
+```bash
+# Check current version
+cat .agents/hatch.json | grep hatch3rVersion
+
+# Update to latest
+hatch3r update
+```
+
+Output shows version change:
+
+```
+ℹ Updating from v0.1.0 to v0.2.0
+```
+
+Or if already current:
+
+```
+ℹ Already at hatch3r v0.2.0
+```
+
+## What Gets Updated
+
+Update only modifies **framework-provided files**:
+
+### Updated Files
+
+- `hatch3r-*` prefixed files in `.agents/agents/`
+- `hatch3r-*` directories in `.agents/skills/`
+- Framework rules, prompts, commands
+- `.agents/AGENTS.md`
+- Tool adapter implementations
+
+### Preserved Files
+
+- Your custom agents (non-`hatch3r-*` files)
+- User-created skills and rules
+- Custom commands and prompts
+- `.agents/learnings/` directory
+- User content in managed files
+- `.hatch3r/` customization directory
+
+## Safe Merge Behavior
+
+Update uses intelligent merging:
+
+- **Managed blocks** - Updates framework content between markers
+- **User content** - Preserves all content outside managed blocks
+- **Backups** - Creates `.backup` files before overwriting (unless disabled)
+- **Unchanged files** - Skips files that are identical
+
+## Output
+
+Update provides detailed progress:
+
+```
+[1/3] Updating canonical files...
+✓ [1/3] Updated 15 canonical files
+
+[2/3] Re-syncing adapter output...
+✓ [2/3] Re-synced 3 tool(s)
+
+[3/3] Writing manifest...
+✓ [3/3] Manifest updated
+
+╭─ Update complete ─────────────────────────────╮
+│                                               │
+│  Files:    15 canonical files updated         │
+│  Tools:    3 tool(s) re-synced                │
+│  Version:  v0.2.0                             │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+## Examples
+
+### Standard Update
+
+```bash
+hatch3r update
+```
+
+Updates templates with automatic backups.
+
+### Update Without Backups
+
+```bash
+hatch3r update --backup=false
+```
+
+Updates without creating `.backup` files (use with caution).
+
+### Update in CI/CD
+
+```bash
+# Check for updates and apply
+hatch3r update --backup=false
+hatch3r validate
+```
+
+Useful for keeping automation up to date.
+
+### Update After Hatch3r Upgrade
+
+```bash
+# Upgrade hatch3r package
+npm update hatch3r
+
+# Pull latest templates
+hatch3r update
+
+# Verify everything works
+hatch3r validate
+hatch3r status
+```
+
+## When to Update
+
+Run `hatch3r update` when:
+
+- New hatch3r version is released
+- You want latest agent templates
+- Framework adds new features
+- Bug fixes are available in templates
+- You see update notifications
+
+## Update Strategy
+
+Recommended workflow:
+
+```bash
+# 1. Check current state
+hatch3r status
+git status
+
+# 2. Commit current work
+git add .
+git commit -m "Save work before update"
+
+# 3. Update templates
+hatch3r update
+
+# 4. Validate results
+hatch3r validate
+hatch3r status
+
+# 5. Review changes
+git diff
+
+# 6. Commit updates
+git add .
+git commit -m "Update hatch3r templates to v0.2.0"
+```
+
+## Backup Files
+
+With `--backup` enabled (default), update creates backups:
+
+```
+.cursorrules.backup
+CLAUDE.md.backup
+opencode.json.backup
+```
+
+These are timestamped and can be used to restore if needed:
+
+```bash
+# Restore from backup
+mv .cursorrules.backup .cursorrules
+```
+
+Backups are not tracked in git by default (add to `.gitignore`).
+
+## Error Handling
+
+If update fails:
+
+```
+✗ [2/3] Failed to generate cursor output
+Error: ENOENT: .agents/agents/ directory not found
+```
+
+Update will:
+- Stop at the failing step
+- Show error details
+- Exit with code 1
+- Leave partial changes (backups are preserved)
+
+Fix the error and run update again.
+
+## Customization Persistence
+
+Your customizations are preserved:
+
+- `.hatch3r/agents/*.customize.yaml` files are never touched
+- User content outside managed blocks stays intact
+- Custom files (non-`hatch3r-*`) remain unchanged
+- `.agents/learnings/` is preserved
+
+## Prerequisites
+
+- `.agents/hatch.json` must exist (run `hatch3r init` first)
+- Must be run from repository root
+- Write permissions on `.agents/` directory
+
+## Version Compatibility
+
+Update handles version migrations:
+
+- Breaking changes are documented in changelog
+- Manifest schema is validated
+- Incompatible changes trigger warnings
+
+## See Also
+
+- [init](/cli/init) - Initial setup
+- [sync](/cli/sync) - Manual sync after updates
+- [validate](/cli/validate) - Verify after updating
+- [status](/cli/status) - Check sync status

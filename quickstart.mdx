@@ -1,80 +1,347 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get hatch3r running in your project in under a minute
 ---
 
-## Get started in three steps
+# Quickstart
 
-Get your documentation site running locally and make your first customization.
+Get hatch3r up and running in your project in under a minute. One command installs 11 agents, 22 skills, 18 rules, 25 commands, and MCP integrations.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before you begin, ensure you have:
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- **Node.js 22+** installed (check with `node --version`)
+- A git repository (for board features, a GitHub remote is required)
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  If you don't have Node.js 22+, install it using [nvm](https://github.com/nvm-sh/nvm), [fnm](https://github.com/Schniz/fnm), or your system package manager.
 </Note>
+
+## Installation
+
+<Steps>
+  <Step title="Run the init command">
+    Navigate to your project directory and run:
+
+    ```bash
+    npx hatch3r init
+    ```
+
+    That's it. hatch3r detects your repo, asks which tools you use, and generates everything.
+  </Step>
+
+  <Step title="Select your coding tools">
+    hatch3r will ask which AI coding tools you use. Select from:
+
+    - **Cursor**
+    - **GitHub Copilot**
+    - **Claude Code**
+    - **OpenCode**
+    - **Windsurf**
+    - **Amp**
+    - **Codex CLI**
+    - **Gemini CLI**
+    - **Cline / Roo Code**
+    - **Aider**
+    - **Kiro**
+    - **Goose**
+    - **Zed**
+
+    You can select multiple tools. hatch3r will generate native configuration for each one.
+  </Step>
+
+  <Step title="Configure MCP servers (optional)">
+    Choose which Model Context Protocol (MCP) servers to install:
+
+    - **GitHub** - Repository operations, issues, PRs
+    - **Context7** - Library documentation search
+    - **Filesystem** - File system operations
+    - **Playwright** - Browser automation for UI verification
+    - **Brave Search** - Web search capabilities
+
+    <Info>
+      You can skip MCP setup during init and configure it later by editing `.agents/mcp/mcp.json` and running `npx hatch3r sync`.
+    </Info>
+  </Step>
+
+  <Step title="Fill in API keys">
+    If you selected MCP servers, hatch3r creates a `.env.mcp` file at your project root with placeholder environment variables:
+
+    ```bash .env.mcp
+    # .env.mcp (generated by hatch3r init)
+    GITHUB_PAT=ghp_xxxxxxxxxxxx
+    BRAVE_API_KEY=xxxxxxxx
+    ```
+
+    Fill in your API keys. This file is automatically gitignored.
+
+    <Warning>
+      For most editors (Cursor, Claude Code), you must source `.env.mcp` before launching:
+
+      ```bash
+      set -a && source .env.mcp && set +a && cursor .
+      ```
+
+      VS Code/Copilot loads `.env.mcp` automatically.
+    </Warning>
+  </Step>
+
+  <Step title="Restart your editor">
+    After init completes, restart your AI coding tool to load the new configuration.
+
+    For Cursor users, check Settings → Tools & MCP to verify MCP servers are connected (green dots).
+  </Step>
+</Steps>
+
+## What Gets Generated
+
+During `npx hatch3r init`, hatch3r creates:
+
+### 1. Canonical Source (`/.agents/`)
+
+The single source of truth for your agent setup:
+
+```
+/.agents/
+  ├── agents/          # 11 specialized agents
+  ├── skills/          # 22 task-specific workflows
+  ├── rules/           # 18 coding standards and patterns
+  ├── commands/        # 25 slash commands
+  ├── mcp/             # MCP server configuration
+  ├── AGENTS.md        # Bridge file for platforms
+  └── hatch.json       # Manifest with project config
+```
+
+### 2. Tool-Specific Adapters
+
+Native configuration for each selected tool:
+
+<CodeGroup>
+
+```bash Cursor
+.cursor/
+  ├── rules/hatch3r-*.mdc
+  ├── agents/hatch3r-*.md
+  ├── skills/hatch3r-*/SKILL.md
+  ├── commands/hatch3r-*.md
+  └── mcp.json
+```
+
+```bash GitHub Copilot
+.github/
+  ├── copilot-instructions.md
+  ├── instructions/hatch3r-*.instructions.md
+  ├── agents/hatch3r-*.md
+  ├── prompts/hatch3r-*.prompt.md
+  └── skills/hatch3r-*/SKILL.md
+.vscode/
+  └── mcp.json
+```
+
+```bash Claude Code
+CLAUDE.md
+.claude/
+  ├── rules/hatch3r-*.md
+  ├── agents/hatch3r-*.md
+  ├── skills/hatch3r-*/SKILL.md
+  └── commands/hatch3r-*.md
+.mcp.json
+```
+
+```bash OpenCode
+AGENTS.md
+opencode.json
+.opencode/
+  ├── agents/hatch3r-*.md
+  ├── skills/hatch3r-*/SKILL.md
+  └── commands/hatch3r-*.md
+```
+
+</CodeGroup>
+
+### 3. Environment Configuration
+
+- **`.env.mcp`** - Centralized secrets file for all MCP servers (gitignored)
+- **`.gitignore`** - Updated to exclude `.env.*` if not already present
+
+## Verify Installation
+
+Check that everything was generated correctly:
+
+```bash
+npx hatch3r status
+```
+
+This shows the sync status between canonical (`/.agents/`) and generated files. All files should show as "synced".
+
+<Tip>
+  Run `npx hatch3r validate` to check the structural integrity of your `.agents/` directory.
+</Tip>
+
+## Next Steps
+
+After installation, choose your path based on your project type:
+
+<CardGroup cols={2}>
+  <Card title="New Project" icon="seedling">
+    Run `project-spec` to generate documentation from your project vision:
+
+    ```bash
+    # In your AI coding tool
+    project-spec
+    ```
+
+    This spawns parallel researcher sub-agents to produce specs, ADRs, and a `todo.md` file.
+  </Card>
+
+  <Card title="Existing Codebase" icon="magnifying-glass">
+    Run `codebase-map` to analyze and reverse-engineer specifications:
+
+    ```bash
+    # In your AI coding tool
+    codebase-map
+    ```
+
+    This discovers modules, dependencies, conventions, and tech debt.
+  </Card>
+
+  <Card title="Single Feature" icon="puzzle-piece">
+    Run `feature-plan` to plan one feature in depth:
+
+    ```bash
+    # In your AI coding tool
+    feature-plan
+    ```
+
+    Spawns researcher sub-agents to analyze impact, design, architecture, and risks.
+  </Card>
+
+  <Card title="Complex Bug" icon="bug">
+    Run `bug-plan` to investigate and plan a fix:
+
+    ```bash
+    # In your AI coding tool
+    bug-plan
+    ```
+
+    Spawns parallel researchers to trace symptoms, find root causes, and assess impact.
+  </Card>
+</CardGroup>
+
+## Full Development Workflow
+
+After planning, the typical hatch3r workflow is:
+
+<Steps>
+  <Step title="Initialize board">
+    ```bash
+    board-init
+    ```
+    Creates or connects a GitHub Projects V2 board with status fields and label taxonomy.
+  </Step>
+
+  <Step title="Create todo.md">
+    Define your work in a `todo.md` file at the project root:
+
+    ```markdown todo.md
+    # Epics
+    - User authentication system
+    - Payment processing
+
+    # Features
+    - Add login form with email/password
+    - Implement OAuth with Google
+    - Add Stripe checkout flow
+
+    # Bugs
+    - Fix session timeout on mobile
+    ```
+  </Step>
+
+  <Step title="Fill the board">
+    ```bash
+    board-fill
+    ```
+    Parses `todo.md`, creates GitHub issues, analyzes dependencies, and marks issues as ready.
+  </Step>
+
+  <Step title="Pick up work">
+    ```bash
+    board-pickup
+    ```
+    Auto-selects the next best issue, creates a branch, implements the feature, and creates a PR.
+  </Step>
+
+  <Step title="Review & merge">
+    The reviewer, test-writer, and security-auditor agents review your work. Address feedback and merge.
+  </Step>
+
+  <Step title="Release">
+    ```bash
+    release
+    ```
+    Cuts a versioned release with semantic versioning and generated changelog.
+  </Step>
+</Steps>
+
+## CLI Commands Reference
+
+```bash
+npx hatch3r init          # Interactive setup
+npx hatch3r sync          # Re-generate from canonical state
+npx hatch3r update        # Pull latest templates (safe merge)
+npx hatch3r status        # Check sync status
+npx hatch3r validate      # Validate .agents/ structure
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module or ESM errors when running npx hatch3r">
+    **Cause:** Node.js version is below 22.
+
+    **Solution:**
+    1. Check your version: `node --version`
+    2. Upgrade using [nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm)
+    3. Verify: `node --version` should show v22.0.0 or higher
+  </Accordion>
+
+  <Accordion title="MCP servers not connecting">
+    **Symptoms:** Red or gray dots in Cursor MCP settings, or MCP tools don't appear.
+
+    **Solution:**
+    1. Source `.env.mcp` before launching your editor:
+       ```bash
+       set -a && source .env.mcp && set +a && cursor .
+       ```
+    2. Restart your editor after running `hatch3r init`
+    3. Verify config path (Cursor: `.cursor/mcp.json`, Claude: `.mcp.json`)
+  </Accordion>
+
+  <Accordion title="GitHub MCP returns 401 or 403">
+    **Cause:** Missing or invalid `GITHUB_PAT`, or insufficient token scopes.
+
+    **Solution:**
+    1. Create a [Personal Access Token](https://github.com/settings/tokens/new)
+    2. Classic PAT: Grant `repo` and `read:org` scopes. For board commands, add `project`
+    3. Add to `.env.mcp`: `GITHUB_PAT=ghp_xxxx`
+    4. Source `.env.mcp` and restart your editor
+  </Accordion>
+
+  <Accordion title="Not in a git repository">
+    **Symptom:** Init completes but `owner` and `repo` in `hatch.json` are empty.
+
+    **Solution:**
+    Run init from a git repository root. hatch3r reads owner/repo from `git remote get-url origin`. You can manually edit `/.agents/hatch.json` to add these later.
+  </Accordion>
+</AccordionGroup>
+
+For more troubleshooting help, see the [Troubleshooting Guide](/guides/troubleshooting).
+
+## What's Next?
+
+- Learn about [Supported Tools](/supported-tools) and what gets generated for each
+- Explore the [Board Management](/concepts/board-management) workflow
+- Understand [Sub-Agentic Architecture](/concepts/sub-agentic-architecture)
+- Configure [Model Selection](/guides/model-selection) per agent

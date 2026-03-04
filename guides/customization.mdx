@@ -1,0 +1,406 @@
+---
+title: Customization
+description: Customizing hatch3r agents, commands, skills, and rules
+---
+
+hatch3r uses a naming convention to separate managed from custom files, and supports multiple customization approaches.
+
+## Overview
+
+hatch3r provides three customization mechanisms:
+
+1. **Naming convention** — `hatch3r-*` files are managed; non-prefixed files are yours
+2. **Managed blocks** — Content outside `<!-- HATCH3R:BEGIN/END -->` is preserved
+3. **Customization files** — `.customize.yaml` files override managed behavior
+
+## Naming Convention
+
+Files are classified by prefix:
+
+- **`hatch3r-*` files** — Managed by hatch3r, updated on `sync` or `update`
+- **Non-prefixed files** — Your customizations, never touched by hatch3r
+
+### Example
+
+```
+.cursor/rules/
+  hatch3r-code-standards.mdc     # Managed — updated by hatch3r
+  hatch3r-error-handling.mdc     # Managed — updated by hatch3r
+  my-project-conventions.mdc     # Custom — never touched
+  team-style-guide.mdc           # Custom — never touched
+```
+
+You can:
+- Add custom rules alongside hatch3r rules
+- Create custom agents, skills, or commands
+- Override hatch3r behavior without modifying managed files
+
+## Managed Blocks in Markdown Files
+
+**All hatch3r-generated markdown files** (rules, agents, skills, commands, bridge files, shared instruction files like `AGENTS.md`, `CLAUDE.md`, `.windsurfrules`) use managed blocks.
+
+Only the content between `<!-- HATCH3R:BEGIN -->` and `<!-- HATCH3R:END -->` is updated on `hatch3r sync` or `hatch3r update`. Content outside these markers is preserved.
+
+### Example
+
+In `hatch3r-code-standards.mdc`:
+
+```markdown
+<!-- HATCH3R:BEGIN -->
+# Code Standards
+
+All TypeScript code must use strict mode.
+Function length limit: 50 lines.
+File length limit: 300 lines.
+<!-- HATCH3R:END -->
+
+## My Project-Specific Standards
+
+- Use `zod` for all runtime validation
+- Prefer `vitest` over `jest` for new tests
+- All API responses must include correlation IDs
+
+This section is preserved across hatch3r updates.
+```
+
+When you run `npx hatch3r update` to pull the latest templates, the content inside `<!-- HATCH3R:BEGIN/END -->` is updated, but your custom section remains untouched.
+
+<Warning>
+  Config files (JSON, TOML, YAML) in `.cursor/`, `.github/`, etc. are fully regenerated on sync. Use managed blocks only in markdown files.
+</Warning>
+
+## Customization Files
+
+For per-agent, per-command, per-skill, or per-rule customization without modifying managed files, use `.customize.yaml` files.
+
+### Location
+
+```
+.hatch3r/
+  agents/
+    hatch3r-reviewer.customize.yaml
+  commands/
+    hatch3r-board-fill.customize.yaml
+  skills/
+    hatch3r-feature.customize.yaml
+  rules/
+    hatch3r-code-standards.customize.yaml
+```
+
+### Format
+
+Each `.customize.yaml` file contains:
+
+```yaml
+agent: hatch3r-reviewer  # ID of the agent being customized
+model: opus              # Override model (optional)
+instructions: |          # Additional instructions (optional)
+  ## Project-Specific Review Guidelines
+  
+  - All database queries must use prepared statements
+  - All user input must be validated with zod schemas
+  - All API endpoints must have rate limiting
+```
+
+### Creating Customization Files
+
+Use the customization commands in your coding tool:
+
+<Tabs>
+  <Tab title="Agent">
+    Run `agent-customize` command:
+    
+    1. Select the agent to customize
+    2. Optionally set a model override
+    3. Add project-specific instructions
+    
+    Creates `.hatch3r/agents/{agent-id}.customize.yaml`
+  </Tab>
+  
+  <Tab title="Command">
+    Run `command-customize` command:
+    
+    1. Select the command to customize
+    2. Add project-specific instructions or overrides
+    
+    Creates `.hatch3r/commands/{command-id}.customize.yaml`
+  </Tab>
+  
+  <Tab title="Skill">
+    Run `skill-customize` command:
+    
+    1. Select the skill to customize
+    2. Add project-specific workflow modifications
+    
+    Creates `.hatch3r/skills/{skill-id}.customize.yaml`
+  </Tab>
+  
+  <Tab title="Rule">
+    Run `rule-customize` command:
+    
+    1. Select the rule to customize
+    2. Add project-specific enforcement details
+    
+    Creates `.hatch3r/rules/{rule-id}.customize.yaml`
+  </Tab>
+</Tabs>
+
+### Customization Precedence
+
+For agents with model configuration:
+
+1. **Customization file** — `.hatch3r/agents/{id}.customize.yaml` `model:` field (highest)
+2. **Manifest per-agent** — `hatch.json` → `models.agents.{id}`
+3. **Canonical frontmatter** — `.agents/agents/{id}.md` `model:` field
+4. **Manifest default** — `hatch.json` → `models.default`
+5. **Platform default** — No model specified (lowest)
+
+For instructions:
+
+- Customization file instructions are **appended** to the canonical agent/command/skill/rule content
+- Both canonical and custom instructions are active
+
+## Use Cases
+
+### Override Model for a Single Agent
+
+Create `.hatch3r/agents/hatch3r-reviewer.customize.yaml`:
+
+```yaml
+agent: hatch3r-reviewer
+model: codex
+```
+
+Now `hatch3r-reviewer` uses `codex` regardless of `hatch.json` settings.
+
+### Add Project-Specific Review Rules
+
+Create `.hatch3r/agents/hatch3r-reviewer.customize.yaml`:
+
+```yaml
+agent: hatch3r-reviewer
+instructions: |
+  ## Our Security Requirements
+  
+  - All authentication must use our `withAuth` middleware
+  - All database migrations must have a corresponding rollback script
+  - All environment variables must be documented in .env.example
+  
+  ## Our Testing Standards
+  
+  - All public API endpoints must have integration tests
+  - All React components must have snapshot tests
+  - All utility functions must have property-based tests
+```
+
+The reviewer agent will apply these rules in addition to the standard review guidelines.
+
+### Customize board-fill Behavior
+
+Create `.hatch3r/commands/hatch3r-board-fill.customize.yaml`:
+
+```yaml
+command: hatch3r-board-fill
+instructions: |
+  ## Our Issue Classification Rules
+  
+  - All issues touching the payment module must be marked `risk:high`
+  - All issues with "user-facing" in the title must be marked `priority:p1`
+  - All refactoring issues must include "Rollback Plan" in acceptance criteria
+  
+  ## Our Area Taxonomy
+  
+  - `area:payments` — Stripe integration, billing, invoices
+  - `area:auth` — Authentication, authorization, session management
+  - `area:data-pipeline` — ETL jobs, data warehouse, analytics
+```
+
+### Add Custom Acceptance Criteria to Feature Skill
+
+Create `.hatch3r/skills/hatch3r-feature.customize.yaml`:
+
+```yaml
+skill: hatch3r-feature
+instructions: |
+  ## Acceptance Criteria Requirements
+  
+  Every feature implementation must include:
+  
+  1. **Performance criteria** — API response time, page load time, or bundle size impact
+  2. **Accessibility criteria** — Keyboard navigation and screen reader support
+  3. **Error handling criteria** — Expected behavior for network errors and edge cases
+  4. **Analytics criteria** — Which events to track and what properties to capture
+```
+
+### Enforce Code Style in Rules
+
+Create `.hatch3r/rules/hatch3r-code-standards.customize.yaml`:
+
+```yaml
+rule: hatch3r-code-standards
+instructions: |
+  ## Our TypeScript Conventions
+  
+  - Use `interface` for public APIs, `type` for internal shapes
+  - Prefer named exports over default exports
+  - Use `const` assertions for literal types
+  - All error classes must extend our base `AppError` class
+  
+  ## Our React Conventions
+  
+  - Use `function` declarations for components, not arrow functions
+  - Destructure props in the function signature
+  - Order hooks: useState, useEffect, custom hooks, event handlers
+```
+
+## Creating Custom Agents, Commands, Skills, or Rules
+
+To create entirely custom agents, commands, skills, or rules:
+
+1. **Do not use the `hatch3r-` prefix**
+2. Create files in the appropriate directory:
+   - Custom agents: `.cursor/agents/my-custom-agent.md` (or tool-specific path)
+   - Custom skills: `.cursor/skills/my-custom-skill.md`
+   - Custom rules: `.cursor/rules/my-custom-rule.mdc`
+   - Custom commands: Not directly supported; use skill customization instead
+
+### Example: Custom Agent
+
+Create `.cursor/agents/db-optimizer.md`:
+
+```markdown
+---
+id: db-optimizer
+description: Database query optimization specialist
+model: opus
+---
+# Database Optimizer Agent
+
+You are a database query optimization specialist. Your role:
+
+1. Analyze SQL queries for performance issues
+2. Identify missing indexes
+3. Suggest query rewrites
+4. Validate pagination strategies
+5. Check for N+1 query problems
+
+## Our Database Context
+
+- PostgreSQL 15
+- Prisma ORM
+- Connection pooling via PgBouncer
+- Read replicas for analytics queries
+
+## Optimization Guidelines
+
+- All queries must use indexes on filter columns
+- Pagination must use cursor-based pagination
+- Aggregations should use materialized views when possible
+- Full-text search should use PostgreSQL's `tsvector`
+```
+
+This agent is entirely custom and will not be affected by `hatch3r sync` or `hatch3r update`.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Prefer customization files for model overrides">
+    Model overrides in `.customize.yaml` files have the highest precedence and don't require editing `hatch.json`.
+  </Accordion>
+  
+  <Accordion title="Use managed blocks for light customization">
+    If you just need to add a section or two, use managed blocks in existing `hatch3r-*` files.
+  </Accordion>
+  
+  <Accordion title="Create custom files for heavy customization">
+    If you're replacing most of a managed file's content, create a custom file instead.
+  </Accordion>
+  
+  <Accordion title="Document custom conventions in AGENTS.md">
+    Add your project-specific conventions to the root `AGENTS.md` so all agents can reference them.
+  </Accordion>
+  
+  <Accordion title="Version control .customize.yaml files">
+    Commit `.hatch3r/` customization files to your repository so the team shares the same overrides.
+  </Accordion>
+  
+  <Accordion title="Review after hatch3r update">
+    After running `npx hatch3r update`, review the changes to managed blocks to see if any new best practices conflict with your customizations.
+  </Accordion>
+</AccordionGroup>
+
+## Managing Customization
+
+### List Active Customizations
+
+To see which agents, commands, skills, or rules have active customizations:
+
+```bash
+find .hatch3r -name "*.customize.yaml"
+```
+
+### Edit Customization Files
+
+Use the customization commands or edit `.customize.yaml` files directly:
+
+```bash
+# Edit agent customization
+vim .hatch3r/agents/hatch3r-reviewer.customize.yaml
+
+# Edit command customization
+vim .hatch3r/commands/hatch3r-board-fill.customize.yaml
+```
+
+### Remove Customization
+
+Delete the `.customize.yaml` file:
+
+```bash
+rm .hatch3r/agents/hatch3r-reviewer.customize.yaml
+```
+
+Then run `npx hatch3r sync` to regenerate without the override.
+
+## Sync and Update Behavior
+
+### npx hatch3r sync
+
+Regenerates tool outputs from canonical `.agents/` state:
+
+- **Managed blocks**: Content inside markers is updated, outside is preserved
+- **Config files**: Fully regenerated (JSON, TOML, YAML)
+- **Custom files**: Never touched
+- **Customization files**: Read and applied during generation
+
+### npx hatch3r update
+
+Pulls latest hatch3r templates and safely merges:
+
+- **Managed blocks**: Content inside markers is updated to latest, outside is preserved
+- **Config files**: Regenerated with latest schema
+- **Custom files**: Never touched
+- **Customization files**: Preserved, continue to apply
+
+<Tip>
+  Run `npx hatch3r status` to see which files have drifted from the canonical state.
+</Tip>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Model Selection" icon="brain" href="/guides/model-selection">
+    Configure AI models per agent
+  </Card>
+  
+  <Card title="Agents Reference" icon="robot" href="/agents/overview">
+    Learn about built-in agents
+  </Card>
+  
+  <Card title="Skills Reference" icon="wand-magic-sparkles" href="/skills/overview">
+    Learn about built-in skills
+  </Card>
+  
+  <Card title="Rules Reference" icon="book-bookmark" href="/rules/overview">
+    Learn about built-in rules
+  </Card>
+</CardGroup>

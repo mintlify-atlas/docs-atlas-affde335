@@ -1,0 +1,202 @@
+---
+title: Security Audit
+description: Create a full-product security audit epic with one sub-issue per project module
+---
+
+## Overview
+
+Create a security audit epic on your repository with one sub-issue per logical project module, plus cross-module trust boundary and OWASP alignment audits. Each sub-issue is a deep static-analysis security audit task that produces a findings epic with actionable sub-issues for hardening application security.
+
+**The command only creates the initial audit epic — it does NOT execute any audits.**
+
+## When to Use
+
+- You need a comprehensive security assessment across all modules
+- You're preparing for a security review or compliance audit
+- You want to identify vulnerabilities and security gaps
+- You need to validate OWASP Top 10 coverage
+- You're implementing AI/agentic features and need to assess OWASP Agentic Top 10 compliance
+
+## How It Works
+
+<Steps>
+  <Step title="Load Context & Pre-Flight Check">
+    Reads shared board context, scans for existing security audit epics, and fetches all open issues for board overview regeneration.
+  </Step>
+
+  <Step title="Determine Audit Modules">
+    Builds a module taxonomy from your directory structure and maps each module to security-relevant specs (threat model, permissions, data model, privacy docs). If no security-specific specs exist, notes the gap.
+  </Step>
+
+  <Step title="Create Security Audit Epic">
+    Creates the parent epic with labels `type:epic`, `meta:security-audit`, `status:ready`, `executor:agent`, `priority:p0`, `area:security`.
+  </Step>
+
+  <Step title="Create Module Security Audit Sub-Issues">
+    For each module, creates a sub-issue that performs security analysis across 8 domains (see Audit Protocol below).
+  </Step>
+
+  <Step title="Create Cross-Cutting Security Audit Sub-Issues">
+    Creates two additional audits:
+    - **Cross-Module Trust Boundaries**: Analyzes trust assumptions, data flow security, and privilege escalation paths
+    - **OWASP Top 10 & Compliance Alignment**: Maps findings to OWASP Top 10 and OWASP Agentic Top 10, assesses infrastructure security
+  </Step>
+
+  <Step title="Finalize Epic & Set Dependencies">
+    Updates the security audit epic with actual sub-issue numbers and verifies dependency sections.
+  </Step>
+
+  <Step title="Board Integration">
+    Syncs the epic and all sub-issues to your GitHub Projects v2 board and regenerates the board overview.
+  </Step>
+</Steps>
+
+## Audit Protocol — 8 Security Domains
+
+Each module security audit performs deep static analysis across these domains:
+
+### 1. Authentication & Authorization
+- Identifies all auth flows (login, token refresh, session creation)
+- Verifies auth tokens are validated on every protected endpoint
+- Checks session management: expiry, rotation, invalidation on logout/password change
+- Assesses RBAC/permission enforcement
+- Looks for privilege escalation paths
+
+### 2. Input Validation & Sanitization
+- Identifies all external input entry points
+- Checks for injection vulnerabilities: XSS, SQL injection, NoSQL injection, command injection, template injection
+- Verifies type coercion and boundary validation
+- Assesses encoding/escaping before output
+- Checks file upload handling: type validation, size limits, path traversal prevention
+
+### 3. Data Protection & Privacy
+- Checks encryption: data at rest and in transit (TLS enforcement)
+- Identifies PII handling
+- Verifies data exposure: responses filtered to exclude sensitive fields
+- Checks logging hygiene: no PII, tokens, passwords in logs
+- Assesses privacy invariant adherence
+- Checks data retention and deletion capabilities
+
+### 4. Access Control
+- Audits database/storage security rules
+- Verifies least privilege principle
+- Checks entitlement enforcement (server-side only)
+- Assesses file/resource permission models
+- Looks for direct object reference vulnerabilities (IDOR)
+
+### 5. Secret Management
+- Scans for hardcoded secrets, API keys, credentials, or tokens
+- Verifies environment variable usage for all secrets
+- Checks for secret exposure in error messages, stack traces, or client-side bundles
+- Assesses secret rotation capabilities
+- Verifies `.gitignore` and build pipeline exclude sensitive files
+
+### 6. Error Handling & Information Leakage
+- Checks error responses: no stack traces, internal paths, or system info exposed
+- Verifies debug endpoints and verbose logging disabled in production
+- Assesses error messages for sensitive data leakage
+- Checks for catch-all error handlers that swallow security-relevant failures
+- Verifies logging captures security events
+
+### 7. API & Endpoint Security
+- Verifies auth enforced on all endpoints
+- Checks rate limiting on auth and sensitive endpoints
+- Assesses CORS configuration
+- Verifies response filtering: no over-fetching
+- Checks webhook endpoints for signature verification
+- Assesses API versioning and deprecation for security implications
+
+### 8. AI & Agentic Security (OWASP Agentic Top 10)
+
+<AccordionGroup>
+  <Accordion title="ASI01 — Agent Goal Hijack">
+    Checks for system prompt leakage, input sanitization before LLM processing, instruction hierarchy enforcement, indirect prompt injection prevention
+  </Accordion>
+  
+  <Accordion title="ASI02 — Tool Misuse & Exploitation">
+    Verifies tool access controls, parameter validation on tool calls, deny-by-default permissions, rate limiting
+  </Accordion>
+  
+  <Accordion title="ASI03 — Identity & Privilege Abuse">
+    Checks unique agent identification, action attribution, non-repudiation mechanisms, impersonation prevention
+  </Accordion>
+  
+  <Accordion title="ASI04 — Supply Chain Vulnerabilities">
+    Audits MCP server sources, version pinning, package integrity verification, auto-install risks
+  </Accordion>
+  
+  <Accordion title="ASI05 — Unexpected Code Execution">
+    Checks sandboxed execution, code review before execution, restricted file system access, network isolation
+  </Accordion>
+  
+  <Accordion title="ASI06 — Memory & Context Poisoning">
+    Verifies context validation before reuse, memory expiry, tamper detection, RAG content validation
+  </Accordion>
+  
+  <Accordion title="ASI07 — Insecure Inter-Agent Communication">
+    Checks agent-to-agent authentication, scoped delegation tokens, message integrity, privilege boundaries
+  </Accordion>
+  
+  <Accordion title="ASI08 — Cascading Failures">
+    Assesses error propagation, circuit breakers, timeout enforcement, blast radius containment
+  </Accordion>
+  
+  <Accordion title="ASI09 — Human-Agent Trust Exploitation">
+    Verifies confirmation checkpoints, cost limits, social engineering resistance, action transparency
+  </Accordion>
+  
+  <Accordion title="ASI10 — Rogue Agents">
+    Checks behavioral monitoring, output validation, scope enforcement, kill switches, anomaly detection
+  </Accordion>
+</AccordionGroup>
+
+## Output — Security Findings Epics
+
+Each security audit creates a findings epic with:
+- **Title**: `[Security Findings]: {Module Name}`
+- **Labels**: `type:epic`, `meta:security-audit-findings`, `status:ready`, `executor:agent`, `priority:p0`
+- **Sub-issues**: One per actionable finding, each with:
+  - Security domain reference (1–8) for traceability
+  - Problem description with evidence (file paths, line references, spec section)
+  - Risk assessment: severity (critical/high/medium/low), exploitability, blast radius
+  - Suggested fix approach
+  - Acceptance criteria (specific and testable)
+  - Labels: `type:bug` for vulnerabilities, `type:security-audit` for hardening improvements
+
+## Cross-Cutting Audits
+
+### Cross-Module Trust Boundaries
+Runs after all module audits complete, analyzing:
+- Trust assumptions: which modules trust input from other modules without re-validation
+- Data flow security: sensitive data crossing module boundaries
+- Privilege escalation: chaining operations across modules to bypass access controls
+- Shared state: caches, sessions, databases accessed with consistent authorization
+- Service-to-service auth: internal API calls authenticated and authorized
+
+### OWASP Top 10 & Compliance Alignment
+Runs after all module audits complete, performing:
+- Mapping of all module findings to OWASP Top 10 (2025) and OWASP Agentic Top 10 (2025)
+- Gap analysis: OWASP categories with no findings
+- Infrastructure security: cloud configuration, container security, network policies
+- Deployment security: CI/CD pipeline security, artifact signing, environment isolation
+- Dependency security posture cross-reference
+- Security testing coverage assessment
+
+## Implementation Order
+
+### Level 1 — Module Security Audits (parallel)
+All module security audit sub-issues can be picked up in parallel.
+
+### Level 2 — Cross-Cutting Security Audits (after all Level 1)
+Trust boundary and OWASP alignment audits run after all module audits, using their findings for context.
+
+## Guardrails
+
+- The command **ONLY creates issues** — it does NOT execute any audits, run tests, or modify code
+- Always includes `meta:security-audit` label on the security audit epic
+- Always includes `meta:security-audit-findings` in audit sub-issue output instructions
+- Preserves dependency ordering — Level 2 sub-issues reference all Level 1 sub-issues
+- **Never downgrades finding severity** without explicit user approval
+- **Critical/high severity findings must always generate sub-issues** — never suppress or skip
+- All findings must reference the security domain (1–8) for traceability
+- Never expands scope beyond discovered modules plus two cross-cutting audits

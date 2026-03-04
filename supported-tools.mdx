@@ -1,0 +1,690 @@
+---
+title: Supported Tools
+description: hatch3r generates native configuration for 13 AI coding platforms from a single canonical source
+---
+
+# Supported Tools
+
+hatch3r maintains a **single canonical source** in `/.agents/` and generates **native configuration** for 13 AI coding platforms. You define your agent setup once and hatch3r adapts it to whatever tool you use.
+
+## Platform Overview
+
+All 13 platforms are supported with varying levels of capability:
+
+| Tool | Rules | Agents | Skills | Commands | MCP | Hooks |
+|------|:-----:|:------:|:------:|:--------:|:---:|:-----:|
+| **Cursor** | Y | Y | Y | Y | Y | Y |
+| **GitHub Copilot** | Y | Y | Y | Y | Y | -- |
+| **Claude Code** | Y | Y | Y | Y | Y | Y |
+| **Cline / Roo Code** | Y | Y | Y | Y | Y | Y |
+| **OpenCode** | Y | Y | Y | Y | Y | -- |
+| **Codex CLI** | B | B | Y | -- | Y | -- |
+| **Gemini CLI** | Y | B | Y | Y | Y | Y |
+| **Windsurf** | Y | B | Y | Y | Y | -- |
+| **Amp** | B | B | Y | ~ | Y | -- |
+| **Aider** | B | B | Y | -- | -- | -- |
+| **Kiro** | Y | B | Y | -- | Y | -- |
+| **Goose** | B | B | B | -- | -- | -- |
+| **Zed** | B | B | -- | -- | -- | -- |
+
+**Legend:**
+- **Y** = Adapter emits files for this capability
+- **B** = Bridge (content folded into an instruction file)
+- **~** = Platform reads canonical `.agents/` paths natively
+- **--** = No platform support
+
+<Note>
+  hatch3r automatically selects the right adapter based on your tool selection during `npx hatch3r init`.
+</Note>
+
+## Tier 1: Full Support
+
+These platforms support all core hatch3r capabilities:
+
+### Cursor
+
+<Card title="Cursor" icon="cursor">
+  Full-featured IDE with native support for rules, agents, skills, commands, MCP, and hooks.
+</Card>
+
+**What gets generated:**
+
+```bash
+.cursor/
+  ├── rules/
+  │   ├── hatch3r-code-standards.mdc
+  │   ├── hatch3r-error-handling.mdc
+  │   ├── hatch3r-testing.mdc
+  │   └── ... (18 total rules)
+  ├── agents/
+  │   ├── hatch3r-reviewer.md
+  │   ├── hatch3r-test-writer.md
+  │   ├── hatch3r-implementer.md
+  │   └── ... (11 total agents)
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   ├── hatch3r-feature/SKILL.md
+  │   ├── hatch3r-refactor/SKILL.md
+  │   └── ... (22 total skills)
+  ├── commands/
+  │   ├── hatch3r-board-init.md
+  │   ├── hatch3r-board-fill.md
+  │   ├── hatch3r-board-pickup.md
+  │   └── ... (25 total commands)
+  └── mcp.json
+```
+
+**Rules format:**
+- MDC frontmatter with `description`, `alwaysApply`, and `globs` fields
+- Auto-applied rules for coding standards, error handling, testing, etc.
+- Scoped rules that activate based on file patterns (e.g., `*.test.ts`)
+
+**Agents format:**
+- YAML frontmatter with `name`, `description`, and optional `model` preference
+- Available in Cursor's agent selector (Cmd+K → Select Agent)
+
+**Skills format:**
+- YAML frontmatter with `name` and `description`
+- Loaded on-demand via `/skill` command or skill auto-discovery
+
+**MCP config:**
+- Direct copy of canonical `.agents/mcp/mcp.json`
+- Located at `.cursor/mcp.json`
+- **Secret loading:** Source `.env.mcp` before launching: `set -a && source .env.mcp && set +a && cursor .`
+
+**Hooks:**
+- Emitted as MDC rules with hook event metadata
+- Located at `.cursor/rules/hatch3r-hook-{id}.mdc`
+
+---
+
+### GitHub Copilot
+
+<Card title="GitHub Copilot" icon="github">
+  AI pair programmer integrated with VS Code and GitHub. Supports rules, agents, skills, prompts, and MCP.
+</Card>
+
+**What gets generated:**
+
+```bash
+.github/
+  ├── copilot-instructions.md           # Always-apply rules
+  ├── instructions/
+  │   ├── hatch3r-api-design.instructions.md
+  │   ├── hatch3r-component-conventions.instructions.md
+  │   └── ... (scoped rules)
+  ├── agents/
+  │   ├── hatch3r-reviewer.md
+  │   ├── hatch3r-test-writer.md
+  │   └── ... (11 total agents)
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   ├── hatch3r-feature/SKILL.md
+  │   └── ... (22 total skills)
+  └── prompts/
+      ├── hatch3r-board-init.prompt.md
+      ├── hatch3r-feature-plan.prompt.md
+      └── ... (25 total prompts)
+
+.vscode/
+  └── mcp.json
+```
+
+**Rules format:**
+- Always-apply rules inlined into `.github/copilot-instructions.md`
+- Scoped rules in `.github/instructions/` with YAML frontmatter (`applyTo`)
+
+**Agents format:**
+- YAML frontmatter with `name`, `description`, and `model`
+- Available in Copilot Chat via `@agent-name`
+
+**Skills format:**
+- YAML frontmatter with `name` and `description`
+- Loaded on-demand via Copilot Workspace agents
+
+**Prompts format:**
+- Commands are mapped to Copilot prompts (`.github/prompts/`)
+- Invocable via Copilot Chat
+
+**MCP config:**
+- Located at `.vscode/mcp.json`
+- **Secret loading:** Auto-loads from `.env.mcp` via `envFile` field (no manual sourcing needed)
+
+---
+
+### Claude Code
+
+<Card title="Claude Code" icon="message-code">
+  Anthropic's native coding environment with support for rules, agents, skills, commands, MCP, and hooks.
+</Card>
+
+**What gets generated:**
+
+```bash
+CLAUDE.md                    # Bridge file with orchestration
+.claude/
+  ├── rules/
+  │   ├── hatch3r-code-standards.md
+  │   ├── hatch3r-error-handling.md
+  │   └── ... (18 total rules)
+  ├── agents/
+  │   ├── hatch3r-reviewer.md
+  │   ├── hatch3r-test-writer.md
+  │   └── ... (11 total agents)
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   ├── hatch3r-feature/SKILL.md
+  │   └── ... (22 total skills)
+  ├── commands/
+  │   ├── hatch3r-board-init.md
+  │   ├── hatch3r-feature-plan.md
+  │   └── ... (25 total commands)
+  └── settings.json            # Hook mappings
+.mcp.json
+```
+
+**Bridge file (`CLAUDE.md`):**
+- Inline orchestration content (mandatory behaviors, agent roster, canonical structure)
+- Reference to `/.agents/AGENTS.md`
+- Claude loads this automatically
+
+**Agents format:**
+- YAML frontmatter with `description`
+- Model guidance in agent content (e.g., "Use Claude Opus for this agent")
+
+**MCP config:**
+- Direct copy of canonical MCP config
+- Located at `.mcp.json` (project root)
+- **Secret loading:** Source `.env.mcp` before launching: `set -a && source .env.mcp && set +a && claude .`
+
+**Hooks:**
+- Defined in `.claude/settings.json`
+- Maps to Claude events: `PreToolUse`, `PostToolUse`, etc.
+
+---
+
+### Cline / Roo Code
+
+<Card title="Cline / Roo Code" icon="terminal">
+  VS Code extension with autonomous coding capabilities. Supports custom modes (agents), rules, skills, workflows, MCP, and hooks.
+</Card>
+
+**What gets generated:**
+
+```bash
+.roomodes                    # Agent definitions (custom modes)
+.roo/
+  ├── rules/
+  │   ├── hatch3r-code-standards.md
+  │   ├── hatch3r-error-handling.md
+  │   ├── hatch3r-hook-session-start.md   # Hooks as rules
+  │   └── ... (18 rules + hooks)
+  └── mcp.json
+.cline/
+  └── skills/
+      ├── hatch3r-bug-fix/SKILL.md
+      ├── hatch3r-feature/SKILL.md
+      └── ... (22 total skills)
+.clinerules/
+  └── workflows/
+      ├── hatch3r-board-init.md
+      ├── hatch3r-feature-plan.md
+      └── ... (25 total workflows)
+```
+
+**Custom modes (.roomodes):**
+- JSON file with `customModes` array
+- Each agent has `slug`, `roleDefinition`, and `groups`
+- Select via Cline mode selector
+
+**MCP config:**
+- Located at `.roo/mcp.json`
+- Transport type mapping for SSE/STDIO servers
+- **Secret loading:** Source `.env.mcp` before launching VS Code
+
+**Hooks:**
+- Emitted as rules in `.roo/rules/hatch3r-hook-{id}.md`
+- Contain hook event and agent metadata
+
+---
+
+### OpenCode
+
+<Card title="OpenCode" icon="code">
+  Open-source AI coding assistant with support for rules, agents, skills, commands, and MCP.
+</Card>
+
+**What gets generated:**
+
+```bash
+AGENTS.md                    # Bridge file
+opencode.json                # Config with MCP and rule references
+.opencode/
+  ├── agents/
+  │   ├── hatch3r-reviewer.md
+  │   ├── hatch3r-test-writer.md
+  │   └── ... (11 total agents)
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   ├── hatch3r-feature/SKILL.md
+  │   └── ... (22 total skills)
+  └── commands/
+      ├── hatch3r-board-init.md
+      ├── hatch3r-feature-plan.md
+      └── ... (25 total commands)
+```
+
+**Config (`opencode.json`):**
+- `instructions` array with glob references to canonical rules
+- `mcp` object with server configs (type, command, URL)
+
+**Agents format:**
+- YAML frontmatter with `description` and `model: provider/id`
+- Native model selection support
+
+**MCP config:**
+- Embedded in `opencode.json`
+- **Secret loading:** Source `.env.mcp` before launching OpenCode
+
+## Tier 2: Bridge Support
+
+These platforms support core capabilities via bridge files:
+
+### Codex CLI
+
+**What gets generated:**
+
+```bash
+.codex/
+  ├── config.toml              # Agent configs, MCP servers
+  └── skills/
+      ├── hatch3r-bug-fix/SKILL.md
+      └── ... (22 total skills)
+```
+
+**Bridge approach:**
+- Rules and agents folded into `AGENTS.md` (referenced via `model_instructions_file` in config.toml)
+- Agent sections in TOML: `[agents.{id}]` with optional `model`
+- MCP servers as TOML sections: `[mcp_servers.{name}]`
+
+---
+
+### Gemini CLI
+
+**What gets generated:**
+
+```bash
+GEMINI.md                    # Bridge file (rules + agents)
+.gemini/
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   └── ... (22 total skills)
+  ├── commands/
+  │   ├── hatch3r-board-init.toml
+  │   └── ... (25 total commands as TOML)
+  └── settings.json            # MCP config + hooks
+```
+
+**Bridge file (`GEMINI.md`):**
+- Inline orchestration + rules + agents
+- Managed block preserves customizations
+
+**Commands format:**
+- TOML files with `description` and `prompt`
+
+---
+
+### Windsurf
+
+**What gets generated:**
+
+```bash
+.windsurfrules               # Bridge file (agents)
+.windsurf/
+  ├── rules/
+  │   ├── hatch3r-code-standards.md
+  │   └── ... (18 total rules)
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   └── ... (22 total skills)
+  ├── workflows/
+  │   ├── hatch3r-board-init.md
+  │   └── ... (25 total workflows)
+  └── mcp.json
+```
+
+**Bridge file (`.windsurfrules`):**
+- Agents inlined with orchestration content
+
+**Rules format:**
+- YAML frontmatter with `trigger` and `globs`
+
+**Skills:**
+- Windsurf natively discovers skills in `/.agents/skills/`
+- Adapter also writes to `.windsurf/skills/` for explicit registration
+
+---
+
+### Amp
+
+**What gets generated:**
+
+```bash
+.amp/
+  ├── AGENTS.md                # Bridge file (rules + agents)
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   └── ... (22 total skills)
+  └── settings.json            # MCP config
+```
+
+**Bridge file (`.amp/AGENTS.md`):**
+- Inline orchestration + rules + agents
+
+**Commands:**
+- Amp reads `.agents/commands/` natively (canonical path match)
+
+**Skills:**
+- Amp discovers skills in `.agents/skills/` and `.amp/skills/`
+
+---
+
+### Aider
+
+**What gets generated:**
+
+```bash
+CONVENTIONS.md               # Bridge file (rules + agents)
+.aider/
+  ├── skills/
+  │   ├── hatch3r-bug-fix/SKILL.md
+  │   └── ... (22 total skills)
+  └── .aider.conf.yml          # Config with `read: CONVENTIONS.md`
+```
+
+**Bridge file (`CONVENTIONS.md`):**
+- Inline orchestration + rules + agents
+- Aider loads via `read:` directive in config
+
+**Limitations:**
+- No project-level MCP support
+- No hooks support
+
+---
+
+### Kiro
+
+**What gets generated:**
+
+```bash
+.kiro/
+  ├── steering/
+  │   ├── hatch3r-agents.md    # Bridge file (rules + agents)
+  │   ├── hatch3r-*.md         # Scoped rules
+  │   └── ... (skills mapped to steering)
+  └── settings/
+      └── mcp.json
+```
+
+**Bridge file (`.kiro/steering/hatch3r-agents.md`):**
+- Inline orchestration + always-apply rules + agents
+
+**Scoped rules:**
+- Conditional inclusion via YAML frontmatter (`globs`)
+
+---
+
+### Goose
+
+**What gets generated:**
+
+```bash
+.goosehints                  # Bridge file (rules + agents + skills)
+```
+
+**Bridge file (`.goosehints`):**
+- All capabilities (rules, agents, skills) inlined
+- Managed block preserves customizations
+
+**Limitations:**
+- No project-level MCP (Goose MCP is global: `~/.config/goose/config.yaml`)
+- No hooks support
+
+---
+
+### Zed
+
+**What gets generated:**
+
+```bash
+.rules                       # Bridge file (rules + agents)
+```
+
+**Bridge file (`.rules`):**
+- Rules and agents inlined
+- Managed block preserves customizations
+
+**Limitations:**
+- No skills concept (rules cover all guidance)
+- No project-level MCP (Zed MCP is global)
+- No hooks support
+
+## Adapter Details by Capability
+
+### Rules
+
+All adapters emit rules in some form:
+
+- **Separate files:** Cursor, Copilot, Claude, Cline, Windsurf, OpenCode, Kiro
+- **Bridge (inlined):** Codex, Gemini, Amp, Aider, Goose, Zed
+
+**18 included rules:**
+- `code-standards` - TypeScript strict mode, naming conventions, file length limits
+- `error-handling` - Structured errors, typed error codes, retries, correlation IDs
+- `testing` - Deterministic, isolated tests with clear naming
+- `api-design` - Endpoint versioning, validation, idempotency, auth
+- `component-conventions` - Component structure, typed props, WCAG AA accessibility
+- `security-patterns` - Input validation, output encoding, auth enforcement
+- `observability` - Structured logging, OpenTelemetry, SLO/SLI
+- `performance-budgets` - Core Web Vitals, API latency, bundle size
+- `theming` - Dark mode, CSS custom properties, semantic tokens
+- `i18n` - Internationalization, RTL support, ICU message format
+- `feature-flags` - Flag naming, evaluation, gradual rollout
+- `migrations` - Backward-compatible schema changes, rollback plans
+- `dependency-management` - Lockfile hygiene, CVE patching, bundle budgets
+- `git-conventions` - Branch naming, commit messages, merge strategy
+- `browser-verification` - When/how to verify UI via automation MCP
+- `agent-orchestration` - Sub-agent spawning, result aggregation, coordination
+- `learning-consult` - When to consult project learnings
+- `tooling-hierarchy` - Priority order: specs > codebase > library docs > web
+
+### Agents
+
+All adapters support agents via either dedicated files or bridge inlining:
+
+**11 included agents:**
+
+<CardGroup cols={2}>
+  <Card title="reviewer" icon="magnifying-glass">
+    Senior code reviewer checking correctness, security, performance, accessibility
+  </Card>
+  <Card title="test-writer" icon="flask">
+    QA engineer writing unit, integration, E2E, and security tests
+  </Card>
+  <Card title="implementer" icon="code">
+    Focused implementation agent for single sub-issues (sub-agentic delegation)
+  </Card>
+  <Card title="security-auditor" icon="shield">
+    Security analyst auditing auth, data flows, privacy invariants
+  </Card>
+  <Card title="docs-writer" icon="book">
+    Technical writer maintaining specs, ADRs, glossary, process docs
+  </Card>
+  <Card title="researcher" icon="magnifying-glass-chart">
+    Research specialist for deep investigation (used by planning commands)
+  </Card>
+  <Card title="perf-profiler" icon="gauge">
+    Performance engineer profiling runtime, bundle size, memory leaks
+  </Card>
+  <Card title="a11y-auditor" icon="universal-access">
+    Accessibility specialist auditing WCAG AA compliance
+  </Card>
+  <Card title="lint-fixer" icon="broom">
+    Code quality enforcer fixing ESLint, Prettier, TypeScript violations
+  </Card>
+  <Card title="ci-watcher" icon="circle-check">
+    CI/CD specialist monitoring GitHub Actions, diagnosing failures
+  </Card>
+  <Card title="dependency-auditor" icon="box">
+    Supply chain analyst scanning CVEs, evaluating upgrade paths
+  </Card>
+</CardGroup>
+
+### Skills
+
+All adapters emit skills (either as dedicated files or bridge inlining):
+
+**22 included skills:**
+- `bug-fix` - Diagnose root cause, implement fix, write regression test
+- `feature` - End-to-end feature implementation (data, domain, API, UI)
+- `refactor` - Internal code quality improvement without changing behavior
+- `visual-refactor` - UI/UX changes with accessibility verification
+- `logical-refactor` - Change business logic with invariant tracking
+- `issue-workflow` - 8-step development workflow for GitHub issues
+- `pr-creation` - Create PRs following project conventions
+- `release` - Cut releases with semantic versioning and changelog
+- `a11y-audit` - WCAG AA audit with automated scanning and fixes
+- `perf-audit` - Profile and optimize against performance budgets
+- `dep-audit` - Audit dependencies for CVEs, research upgrades
+- `architecture-review` - Evaluate decisions, produce ADRs
+- `incident-response` - Structured triage, mitigation, post-mortem
+- `qa-validation` - E2E validation with pass/fail reports
+- `gh-agentic-workflows` - Set up GitHub Agentic Workflows for automation
+- `context-health` - Monitor conversation context degradation
+- `cost-tracking` - Track token usage and estimated costs
+- `recipe` - Create composable workflow recipes
+- `agent-customize` - Configure per-agent overrides
+- `command-customize` - Configure per-command overrides
+- `skill-customize` - Configure per-skill overrides
+- `rule-customize` - Configure per-rule overrides
+
+### Commands
+
+Platforms with slash command support:
+
+- **Dedicated files:** Cursor, Copilot (as prompts), Claude, Cline (as workflows), OpenCode, Gemini (as TOML), Windsurf (as workflows)
+- **Canonical path match:** Amp (reads `.agents/commands/` natively)
+- **Not supported:** Codex, Aider, Kiro, Goose, Zed
+
+**25 included commands:**
+- `board-init` - Create/connect GitHub Projects V2 board
+- `board-fill` - Parse `todo.md`, create issues with dependencies
+- `board-pickup` - Auto-pick next issue, implement, create PR
+- `board-refresh` - Regenerate board overview dashboard
+- `healthcheck` - Create QA/testing audit epic
+- `security-audit` - Create security audit epic
+- `dep-audit` - Scan and upgrade npm dependencies
+- `release` - Cut versioned release with changelog
+- `project-spec` - Generate docs from project vision (greenfield)
+- `codebase-map` - Analyze existing codebase (brownfield)
+- `roadmap` - Generate phased roadmap from specs
+- `feature-plan` - Plan a single feature in depth
+- `bug-plan` - Plan complex bug investigation
+- `refactor-plan` - Plan refactoring/migration effort
+- `workflow` - Guided development lifecycle (4 phases)
+- `hooks` - Interactive hook management
+- `learn` - Capture learnings from completed work
+- `context-health` - Monitor context health during sessions
+- `cost-tracking` - Track token usage and costs
+- `recipe` - Create workflow recipes
+- `agent-customize` - Configure per-agent customization
+- `command-customize` - Configure per-command customization
+- `skill-customize` - Configure per-skill customization
+- `rule-customize` - Configure per-rule customization
+- `board-shared` - Shared context for board commands (not invoked directly)
+
+### MCP Configuration
+
+MCP server config location varies by tool:
+
+| Tool | Config Path | Auto-loads .env.mcp? |
+|------|-------------|:--------------------:|
+| **Cursor** | `.cursor/mcp.json` | No (must source) |
+| **Copilot** | `.vscode/mcp.json` | **Yes** (via `envFile`) |
+| **Claude Code** | `.mcp.json` | No (must source) |
+| **Cline** | `.roo/mcp.json` | No (must source) |
+| **OpenCode** | `opencode.json` (embedded) | No (must source) |
+| **Codex** | `.codex/config.toml` | No (must source) |
+| **Gemini** | `.gemini/settings.json` | No (must source) |
+| **Windsurf** | `.windsurf/mcp.json` | No (must source) |
+| **Amp** | `.amp/settings.json` | No (must source) |
+| **Kiro** | `.kiro/settings/mcp.json` | No (must source) |
+| **Aider** | -- | No MCP support |
+| **Goose** | -- | Global MCP only |
+| **Zed** | -- | Global MCP only |
+
+**5 included MCP servers:**
+- **GitHub** - Repository ops, issues, PRs, Projects V2
+- **Context7** - Library documentation search
+- **Filesystem** - File system operations
+- **Playwright** - Browser automation for UI verification
+- **Brave Search** - Web search capabilities
+
+<Info>
+  For tools that don't auto-load `.env.mcp`, source it before launching:
+
+  ```bash
+  set -a && source .env.mcp && set +a && <editor> .
+  ```
+</Info>
+
+### Hooks
+
+Event-driven agent activation:
+
+- **Supported:** Cursor, Claude, Cline, Gemini
+- **Not supported:** Copilot, OpenCode, Windsurf, Amp, Codex, Aider, Kiro, Goose, Zed
+
+**Included hooks:**
+- `session-start` - Runs when starting a new coding session
+- `file-save` - Runs after file save
+- `pre-commit` - Runs before git commit
+- `post-merge` - Runs after git merge
+- `pre-push` - Runs before git push
+- `ci-failure` - Runs on CI failure notification
+
+## Model Selection
+
+All adapters support per-agent model customization:
+
+- **Native support:** Cursor, Copilot (VS Code), OpenCode, Codex
+- **Guidance (text-based):** Claude, Cline, Gemini, Windsurf, Amp, Aider, Kiro, Goose, Zed
+
+Configure via:
+1. `hatch.json` - Global default and per-agent overrides
+2. Agent frontmatter - `model:` field in canonical agent files
+3. `.hatch3r/agents/{id}.customize.yaml` - Per-agent customization
+
+**Resolution order:** customization file > manifest per-agent > agent frontmatter > manifest default
+
+See the [Model Selection guide](/guides/model-selection) for details.
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get hatch3r running in your project
+  </Card>
+  
+  <Card title="MCP Setup" icon="plug" href="/guides/mcp-setup">
+    Configure MCP servers and secrets
+  </Card>
+  
+  <Card title="Adapter Capability Matrix" icon="table" href="/reference/adapter-capability-matrix">
+    Full technical reference for all adapters
+  </Card>
+  
+  <Card title="Customization" icon="sliders" href="/guides/customization">
+    Customize agents, skills, rules, and commands
+  </Card>
+</CardGroup>

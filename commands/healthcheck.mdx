@@ -1,0 +1,136 @@
+---
+title: Healthcheck
+description: Create a full-product QA and testing audit epic with one sub-issue per project module
+---
+
+## Overview
+
+Create a healthcheck epic on your repository with one sub-issue per logical project module, plus cross-module wiring and vision/roadmap alignment audits. Each sub-issue is a deep static-analysis audit task that produces a findings epic with actionable sub-issues for achieving full QA and testing coverage.
+
+**The command only creates the initial audit epic — it does NOT execute any audits.**
+
+## When to Use
+
+- You need a comprehensive QA audit across all project modules
+- You want to assess test coverage and spec compliance
+- You're preparing for a release and need quality assurance
+- You want to identify gaps in testing, code quality, or implementation
+
+## How It Works
+
+<Steps>
+  <Step title="Load Context & Pre-Flight Check">
+    Reads shared board context, scans for existing healthcheck epics, and fetches all open issues for board overview regeneration.
+  </Step>
+
+  <Step title="Determine Audit Modules">
+    Builds a module taxonomy from your directory structure (e.g., `src/engine/`, `src/events/`) and maps each module to relevant spec files in `docs/specs/`. Presents the audit scope and confirms which modules to include.
+  </Step>
+
+  <Step title="Create Healthcheck Epic">
+    Creates the parent epic with labels `type:epic`, `meta:healthcheck`, `status:ready`, `executor:agent`, `priority:p1`, `area:testing`.
+  </Step>
+
+  <Step title="Create Module Audit Sub-Issues">
+    For each module, creates a sub-issue that performs:
+    - **Test Coverage Analysis**: Maps all exported functions/classes to existing tests, identifies untested code paths
+    - **Spec Compliance**: Compares implementation against every requirement in the spec
+    - **Testing Pyramid Assessment**: Evaluates unit, integration, e2e, security, and performance tests
+    - **Code Quality**: Checks error handling, edge cases, TypeScript strict mode compliance
+    - **Performance & Privacy**: Validates budget compliance and privacy invariant adherence
+    
+    Each audit sub-issue produces a findings epic with actionable sub-issues.
+  </Step>
+
+  <Step title="Create Cross-Cutting Audit Sub-Issues">
+    Creates two additional audits that run after all module audits:
+    - **Cross-Module Wiring**: Analyzes integration points between all modules
+    - **Product vs Vision, Roadmap & Concept Alignment**: Compares implementation against product vision and specs
+  </Step>
+
+  <Step title="Finalize Epic & Set Dependencies">
+    Updates the healthcheck epic with actual sub-issue numbers and verifies dependency sections contain correct references.
+  </Step>
+
+  <Step title="Board Integration">
+    Syncs the epic and all sub-issues to your GitHub Projects v2 board and regenerates the board overview.
+  </Step>
+</Steps>
+
+## Module Discovery
+
+The command discovers modules by scanning your project structure:
+
+1. Inspects top-level directories (e.g., `src/`, `functions/`, `packages/`)
+2. Maps each module to relevant spec files in `docs/specs/`
+3. Produces a taxonomy table with module names, directories, and primary specs
+
+Example structure:
+
+| # | Module | Directories | Primary Specs |
+|---|--------|-------------|----------------|
+| 1 | Core Engine | `src/engine/` | `02_core-engine.md` |
+| 2 | Events | `src/events/` | `03_event-model.md` |
+
+## Audit Protocol
+
+Each module audit sub-issue follows a deep static analysis protocol:
+
+### 1. Test Coverage Analysis
+- Lists all exported functions, classes, and modules
+- Maps each to existing test files
+- Identifies untested code paths and missing test scenarios
+- Assesses test quality with meaningful assertions, edge cases, error paths
+
+### 2. Spec Compliance
+- Reads referenced specs fully
+- Compares implementation against every requirement
+- Flags deviations, partial implementations, and missing features
+
+### 3. Testing Pyramid Assessment
+- **Unit tests**: Coverage percentage estimate and quality assessment
+- **Integration tests**: Cross-module interactions and contract tests
+- **E2E tests**: Critical user flows covered
+- **Security tests**: Invariants validated
+- **Performance tests**: Budget compliance verified
+
+### 4. Code Quality
+- Error handling completeness
+- Edge case coverage (boundary values, empty states, overflow)
+- Input validation at module boundaries
+- TypeScript strict mode compliance (no `any`, no `@ts-ignore` without linked issue)
+- Max function/file length compliance
+
+### 5. Performance & Privacy
+- Performance budget compliance
+- Privacy invariant adherence
+
+## Output — Findings Epics
+
+Each audit creates a findings epic with:
+- **Title**: `[QA Findings]: {Module Name}`
+- **Labels**: `type:epic`, `meta:healthcheck-findings`, `status:ready`, `executor:agent`, `priority:p1`
+- **Sub-issues**: One per actionable finding, each with:
+  - Problem description with evidence (file paths, line references, spec section)
+  - Suggested fix approach
+  - Acceptance criteria (specific and testable)
+  - Appropriate labels: `type:qa` for test gaps, `type:bug` for spec deviations, `type:refactor` for code quality
+
+## Implementation Order
+
+The healthcheck follows a two-level implementation order:
+
+### Level 1 — Module Audits (parallel)
+All module audit sub-issues can be picked up and worked on in parallel.
+
+### Level 2 — Cross-Cutting Audits (after all Level 1)
+The wiring and roadmap alignment audits run only after all module audits complete, using their findings for additional context.
+
+## Guardrails
+
+- The command **ONLY creates issues** — it does NOT execute any audits, run tests, or modify code
+- Always includes the `meta:healthcheck` label on the healthcheck epic
+- Always includes `meta:healthcheck-findings` in audit sub-issue output instructions
+- Preserves dependency ordering — Level 2 sub-issues reference all Level 1 sub-issues
+- Board Overview is auto-maintained
+- Never expands scope beyond discovered modules plus two cross-cutting audits

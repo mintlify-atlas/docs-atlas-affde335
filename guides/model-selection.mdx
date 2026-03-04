@@ -1,0 +1,311 @@
+---
+title: Model Selection
+description: Configuring AI models for hatch3r agents
+---
+
+hatch3r lets you configure preferred AI models for your agents. You can set a global default, override per agent, or use project-specific customization files.
+
+## Overview
+
+When you configure a model, hatch3r includes it in the generated config for each tool (Cursor, Copilot, Claude Code, etc.). Some platforms support native model selection in their config; others receive the recommendation as guidance text.
+
+<Note>
+  **When no model is configured at any level**, hatch3r does not emit a model preference. Each platform (Cursor, Copilot, Claude Code, etc.) uses its own default.
+</Note>
+
+## Configuration Points
+
+| Source | Path | Precedence |
+|--------|------|------------|
+| Customization YAML | `.hatch3r/agents/{agent-id}.customize.yaml` | Highest |
+| Manifest per-agent | `hatch.json` → `models.agents.{agent-id}` | 2nd |
+| Canonical agent | `.agents/agents/{agent-id}.md` frontmatter `model:` | 3rd |
+| Manifest default | `hatch.json` → `models.default` | 4th |
+| (none) | — | Platform auto-select |
+
+## Resolution Order
+
+hatch3r resolves model preferences in this order:
+
+<Steps>
+  <Step title="Customization file">
+    If `.hatch3r/agents/{agent-id}.customize.yaml` exists and has a `model` field, that value wins.
+  </Step>
+  
+  <Step title="Manifest per-agent">
+    `hatch.json` → `models.agents[agent-id]`
+  </Step>
+  
+  <Step title="Canonical agent frontmatter">
+    `model:` in `.agents/agents/{agent-id}.md`
+  </Step>
+  
+  <Step title="Manifest default">
+    `hatch.json` → `models.default`
+  </Step>
+  
+  <Step title="No model">
+    hatch3r emits nothing; the platform uses its own default.
+  </Step>
+</Steps>
+
+## Model Aliases
+
+You can use short aliases instead of full model IDs. hatch3r resolves them before emitting.
+
+### Anthropic Models
+
+| Alias | Resolves To |
+|-------|-------------|
+| `opus` | `claude-opus-4-6` |
+| `sonnet` | `claude-sonnet-4-6` |
+| `haiku` | `claude-haiku-4-5` |
+
+### OpenAI Models
+
+| Alias | Resolves To |
+|-------|-------------|
+| `codex` | `gpt-5.3-codex` |
+| `codex-prev` | `gpt-5.2-codex` |
+| `codex-mini` | `gpt-5.1-codex-mini` |
+| `codex-spark` | `gpt-5.3-codex-spark` |
+
+### Google Models
+
+| Alias | Resolves To |
+|-------|-------------|
+| `gemini-pro` | `gemini-3.1-pro` |
+| `gemini-flash` | `gemini-3-flash` |
+| `gemini-stable` | `gemini-2.5-pro` |
+
+Unknown values are passed through as-is.
+
+## Configuration Examples
+
+### hatch.json
+
+Set a global default and per-agent overrides:
+
+```json
+{
+  "models": {
+    "default": "opus",
+    "agents": {
+      "hatch3r-lint-fixer": "sonnet",
+      "hatch3r-test-writer": "gemini-pro"
+    }
+  }
+}
+```
+
+### Canonical Agent Frontmatter
+
+In `.agents/agents/hatch3r-implementer.md`:
+
+```yaml
+---
+id: hatch3r-implementer
+description: Focused implementation agent for a single issue.
+model: opus
+---
+```
+
+### Customization YAML
+
+In `.hatch3r/agents/hatch3r-reviewer.customize.yaml`:
+
+```yaml
+agent: hatch3r-reviewer
+model: codex
+```
+
+<Tip>
+  Customization files have the highest precedence, allowing you to override any model choice without modifying managed files.
+</Tip>
+
+## Built-in Agent Defaults
+
+Some agents ship with a default model in their canonical frontmatter. These defaults are tuned for the agent's cognitive profile:
+
+- **Mechanical tasks** use a fast model to save cost
+- **Quality-sensitive tasks** lock in a balanced model as a floor
+
+| Agent | Default | Rationale |
+|-------|---------|-----------||
+| `hatch3r-lint-fixer` | `haiku` | Mechanical pattern fixes; speed and low cost matter most |
+| `hatch3r-ci-watcher` | `haiku` | Log parsing and pattern recognition; fast feedback loops |
+| `hatch3r-docs-writer` | `sonnet` | Writing quality and technical accuracy need a capable model |
+| `hatch3r-dependency-auditor` | `sonnet` | Structured CVE/freshness analysis with clear SLAs |
+| `hatch3r-a11y-auditor` | `sonnet` | WCAG standard interpretation requires solid reasoning |
+| `hatch3r-test-writer` | `sonnet` | Edge-case identification and test design need reasoning depth |
+
+Agents without a default (`hatch3r-implementer`, `hatch3r-researcher`, `hatch3r-reviewer`, `hatch3r-security-auditor`, `hatch3r-perf-profiler`) use the platform's own default. Their task complexity varies too widely for a single tier to fit.
+
+<Info>
+  These defaults sit at precedence level 3 (canonical frontmatter). Override them at any higher level (manifest per-agent or customization file).
+</Info>
+
+### Cross-Platform Override
+
+The built-in defaults resolve to Anthropic model IDs (`claude-haiku-4-5`, `claude-sonnet-4-6`). On platforms that only support their own models (e.g., Codex CLI, Gemini CLI), set a project-wide override in `hatch.json`:
+
+```json
+{
+  "models": {
+    "default": "codex",
+    "agents": {
+      "hatch3r-lint-fixer": "codex-spark",
+      "hatch3r-ci-watcher": "codex-spark"
+    }
+  }
+}
+```
+
+Manifest-level overrides (precedence 2 and 4) take priority over canonical frontmatter defaults, so all agents will use your platform's models.
+
+## Platform Behavior
+
+When no model is set, each tool uses its own default.
+
+### Native Config Support
+
+<Tabs>
+  <Tab title="Cursor">
+    **Native config:** Yes
+    
+    Emits `model:` in agent YAML frontmatter.
+    
+    Example:
+    ```yaml
+    ---
+    id: hatch3r-reviewer
+    model: claude-opus-4-6
+    ---
+    ```
+  </Tab>
+  
+  <Tab title="Copilot">
+    **Native config:** Yes (VS Code)
+    
+    Emits `model:` in agent YAML. Ignored on github.com.
+  </Tab>
+  
+  <Tab title="OpenCode">
+    **Native config:** Yes
+    
+    Emits `model: provider/id` in agent config.
+    
+    Example:
+    ```yaml
+    model: anthropic/claude-opus-4-6
+    ```
+  </Tab>
+  
+  <Tab title="Codex (OpenAI)">
+    **Native config:** Yes
+    
+    Emits `model = "id"` in TOML.
+    
+    Example:
+    ```toml
+    [agents.hatch3r-reviewer]
+    model = "gpt-5.3-codex"
+    ```
+  </Tab>
+</Tabs>
+
+### Guidance-Only Support
+
+<Tabs>
+  <Tab title="Claude Code">
+    **Native config:** No
+    
+    Emits guidance:
+    - `/model` command instructions
+    - Environment variable suggestions
+    
+    Users set it manually via CLI.
+  </Tab>
+  
+  <Tab title="Cline / Roo">
+    **Native config:** No
+    
+    Emits guidance in role definition.
+    
+    Users set model in the extension UI.
+  </Tab>
+  
+  <Tab title="Gemini">
+    **Native config:** No
+    
+    Emits guidance in `GEMINI.md`.
+    
+    Users set model via CLI flags.
+  </Tab>
+  
+  <Tab title="Windsurf">
+    **Native config:** No
+    
+    Emits guidance in `.windsurfrules`.
+  </Tab>
+  
+  <Tab title="Amp">
+    **Native config:** No
+    
+    Emits guidance in `.amp/AGENTS.md`.
+  </Tab>
+</Tabs>
+
+## Adapter Support Summary
+
+| Platform | Native Config? | Emitted Format |
+|----------|----------------|----------------|
+| Cursor | Yes | `model:` in agent YAML frontmatter |
+| Copilot | Yes (VS Code) | `model:` in agent YAML; ignored on github.com |
+| OpenCode | Yes | `model: provider/id` in agent config |
+| Codex (OpenAI) | Yes | `model = "id"` in TOML |
+| Claude Code | No | Guidance: `/model` command and env var |
+| Cline/Roo | No | Guidance in role definition |
+| Gemini | No | Guidance in GEMINI.md |
+| Windsurf | No | Guidance in .windsurfrules |
+| Amp | No | Guidance in .amp/AGENTS.md |
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use fast models for mechanical tasks">
+    Agents like `hatch3r-lint-fixer` and `hatch3r-ci-watcher` perform pattern-based fixes. Use `haiku` or `codex-spark` to save costs.
+  </Accordion>
+  
+  <Accordion title="Use capable models for quality tasks">
+    Agents like `hatch3r-reviewer`, `hatch3r-test-writer`, and `hatch3r-security-auditor` require reasoning. Use `opus`, `sonnet`, or `codex`.
+  </Accordion>
+  
+  <Accordion title="Override at the manifest level for simplicity">
+    Put all overrides in `hatch.json` for easy visibility and maintenance.
+  </Accordion>
+  
+  <Accordion title="Use customization files for experimentation">
+    `.hatch3r/agents/{id}.customize.yaml` files allow you to test different models without modifying `hatch.json`.
+  </Accordion>
+  
+  <Accordion title="Match models to your platform">
+    If using Codex CLI exclusively, set `"default": "codex"` to avoid Anthropic model IDs.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Customization Guide" icon="wrench" href="/guides/customization">
+    Per-agent customization including model overrides
+  </Card>
+  
+  <Card title="Adapter Matrix" icon="table" href="/configuration/adapter-capability-matrix">
+    Platform support matrix and model emission per adapter
+  </Card>
+  
+  <Card title="Cost Tracking" icon="dollar-sign" href="/commands/cost-tracking">
+    Track token usage and estimated costs
+  </Card>
+</CardGroup>

@@ -1,0 +1,542 @@
+---
+title: Observability
+description: Structured logging, distributed tracing, metrics, SLO definitions, and alerting with OpenTelemetry
+---
+
+# Observability
+
+**Scope:** Conditional (applies when observability patterns are used)  
+**Rule ID:** `hatch3r-observability`
+
+Defines observability standards including structured logging, distributed tracing with OpenTelemetry, metrics collection, SLO/SLI definitions, alerting, and error reporting.
+
+## Structured Logging
+
+### Use Structured JSON Logging
+
+```typescript
+import { logger } from './logger';
+
+// ✅ Structured logging
+logger.info('User login', {
+  userId: user.id,
+  email: user.email,
+  correlationId: req.correlationId,
+  service: 'auth-service',
+  environment: process.env.NODE_ENV,
+  version: process.env.APP_VERSION,
+});
+
+// ❌ No console.log in production code
+console.log('User logged in:', user.id);
+```
+
+### Log Levels
+
+| Level | When to Use |
+|-------|-------------|
+| `error` | Failures that require immediate attention |
+| `warn` | Degraded state or unexpected conditions |
+| `info` | State changes, business events |
+| `debug` | Development-only detailed info |
+
+### Required Fields
+
+Every log entry must include:
+
+```typescript
+interface LogEntry {
+  level: 'error' | 'warn' | 'info' | 'debug';
+  message: string;
+  correlationId: string;      // Trace requests across services
+  userId?: string;            // If available
+  service: string;            // Service name
+  environment: string;        // dev/staging/production
+  version: string;            // App version (git SHA or semver)
+  timestamp: string;          // ISO 8601
+  [key: string]: unknown;     // Additional context
+}
+```
+
+### Never Log Sensitive Data
+
+```typescript
+const sanitize = (obj: any) => {
+  const sensitive = ['password', 'token', 'apiKey', 'secret', 'ssn', 'creditCard'];
+  const sanitized = { ...obj };
+  for (const field of sensitive) {
+    if (field in sanitized) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+  return sanitized;
+};
+
+logger.info('User created', sanitize({ email, password }));
+```
+
+### Client-Side Logging
+
+```typescript
+// Send errors to reporting service, not just console
+window.addEventListener('error', (event) => {
+  errorReporter.log({
+    message: event.message,
+    stack: event.error?.stack,
+    url: window.location.href,
+    correlationId: getCorrelationId(),
+  });
+});
+```
+
+### Performance Budget for Logging
+
+Logging must not add > 10ms latency to hot paths.
+
+Use async logging and batching:
+
+```typescript
+const logger = pino({
+  level: 'info',
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
+  transport: {
+    target: 'pino/file',  // Async file transport
+    options: { destination: '/var/log/app.log' },
+  },
+});
+```
+
+### Log Sampling
+
+For high-volume debug logs in production:
+
+```typescript
+const shouldLog = Math.random() < 0.01; // 1% sample rate
+
+if (shouldLog) {
+  logger.debug('High-volume debug message', { data });
+}
+```
+
+## Distributed Tracing
+
+### OpenTelemetry SDK
+
+Use OpenTelemetry for all tracing instrumentation:
+
+```typescript
+import { trace } from '@opentelemetry/api';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
+import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+
+// Initialize once at startup
+const provider = new NodeTracerProvider({
+  resource: new Resource({
+    'service.name': 'api-gateway',
+    'service.version': '1.2.3',
+    'deployment.environment': 'production',
+  }),
+});
+
+provider.register();
+
+registerInstrumentations({
+  instrumentations: [
+    new HttpInstrumentation(),
+    new ExpressInstrumentation(),
+  ],
+});
+```
+
+### W3C Trace Context
+
+Propagate trace context across all service boundaries:
+
+```typescript
+// Outgoing HTTP request
+const response = await fetch('https://api.example.com/data', {
+  headers: {
+    'traceparent': req.headers.traceparent,  // Propagate trace context
+    'tracestate': req.headers.tracestate,
+  },
+});
+```
+
+### Span Naming Conventions
+
+| Span Type | Pattern | Example |
+|-----------|---------|----------|
+| HTTP server | `HTTP {method} {route}` | `HTTP GET /api/users/:id` |
+| HTTP client | `HTTP {method} {host}{path}` | `HTTP POST api.stripe.com/` |
+| DB query | `{db.system} {operation}` | `firestore getDoc` |
+| Queue | `{queue} {operation}` | `tasks-queue publish` |
+| Internal | `{module}.{function}` | `auth.verifyToken` |
+
+### Required Span Attributes
+
+```typescript
+const span = trace.getActiveSpan();
+span?.setAttributes({
+  'service.name': 'api-gateway',
+  'service.version': '1.2.3',
+  'deployment.environment': 'production',
+  'user.id': user.id,  // Domain-specific
+  'tenant.id': tenant.id,
+});
+```
+
+### Sampling Strategies
+
+```typescript
+import { ParentBasedSampler, TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-base';
+
+// 10% sample rate in production
+const sampler = new ParentBasedSampler({
+  root: new TraceIdRatioBasedSampler(0.1),
+});
+
+// Always sample errors and slow requests
+class CustomSampler implements Sampler {
+  shouldSample(context, traceId, name, spanKind, attributes, links) {
+    // Always sample errors
+    if (attributes['http.status_code'] >= 500) {
+      return { decision: SamplingDecision.RECORD_AND_SAMPLED };
+    }
+
+    // Always sample slow requests (> p95)
+    if (attributes['http.duration'] > 1000) {
+      return { decision: SamplingDecision.RECORD_AND_SAMPLED };
+    }
+
+    // Otherwise, 10% sample
+    return new TraceIdRatioBasedSampler(0.1).shouldSample(
+      context, traceId, name, spanKind, attributes, links
+    );
+  }
+}
+```
+
+## Metrics
+
+### OpenTelemetry Metrics SDK
+
+```typescript
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
+
+const meterProvider = new MeterProvider({
+  resource: new Resource({
+    'service.name': 'api-gateway',
+  }),
+});
+
+const prometheusExporter = new PrometheusExporter({ port: 9464 });
+meterProvider.addMetricReader(prometheusExporter);
+
+const meter = meterProvider.getMeter('api-gateway');
+```
+
+### Metric Naming
+
+Format: `{service}.{domain}.{metric}_{unit}` in snake_case
+
+Example: `api.auth.login_duration_ms`
+
+### Instrument Types
+
+| Instrument | Use Case | Example |
+|------------|----------|----------|
+| **Counter** | Monotonically increasing totals | `http.requests_total` |
+| **Histogram** | Distributions (latency, size) | `http.request_duration_ms` |
+| **Gauge** | Point-in-time values | `db.connection_pool_active` |
+| **UpDownCounter** | Values that increase and decrease | `queue.messages_pending` |
+
+### Example Metrics
+
+```typescript
+// Counter
+const requestCounter = meter.createCounter('http.requests_total', {
+  description: 'Total HTTP requests',
+});
+
+requestCounter.add(1, {
+  method: req.method,
+  route: req.route.path,
+  status: res.statusCode,
+});
+
+// Histogram
+const durationHistogram = meter.createHistogram('http.request_duration_ms', {
+  description: 'HTTP request duration',
+  unit: 'ms',
+});
+
+durationHistogram.record(duration, {
+  method: req.method,
+  route: req.route.path,
+});
+
+// Gauge
+const activeConnections = meter.createObservableGauge('db.connections_active', {
+  description: 'Active database connections',
+});
+
+activeConnections.addCallback((result) => {
+  result.observe(pool.activeConnections);
+});
+```
+
+### Histogram Buckets for Latency
+
+```typescript
+const buckets = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]; // ms
+```
+
+### Cardinality Management
+
+**Never use unbounded values as labels:**
+
+```typescript
+// ❌ Unbounded cardinality (user IDs)
+requestCounter.add(1, { userId: req.user.id });
+
+// ✅ Bounded cardinality
+requestCounter.add(1, { userRole: req.user.role });
+```
+
+**Cap label cardinality to < 100 unique values per metric.**
+
+## SLO / SLI Definitions
+
+### Service Level Indicators (SLIs)
+
+Define as ratios of good events to total events:
+
+| SLI | Definition | Measurement Source |
+|-----|------------|--------------------|
+| **Availability** | Requests returning non-5xx / total requests | Load balancer logs |
+| **Latency** | Requests completing < threshold / total | Tracing p99 |
+| **Error rate** | Failed operations / total operations | Application metrics |
+| **Freshness** | Data updated within SLA / total records | Background job metrics |
+
+### Service Level Objectives (SLOs)
+
+Typical starting points:
+
+- **Availability:** 99.9% (43 min/month error budget)
+- **Latency:** p99 < 500ms
+
+### Error Budgets
+
+```typescript
+const errorBudget = 1 - sloTarget; // e.g., 1 - 0.999 = 0.001 (0.1%)
+
+// Track on rolling 30-day window
+const budgetRemaining = errorBudget - actualErrorRate;
+
+if (budgetRemaining < 0) {
+  // SLO violated, slow down releases
+}
+```
+
+### Burn Rate Alerts
+
+Multi-window approach:
+
+```typescript
+// Fast-burn alert: 2% budget consumed in 1 hour
+if (errorRateLast1h > 0.02 && errorRateLast5m > 0.02) {
+  alert('Fast SLO burn');
+}
+
+// Slow-burn alert: 5% consumed in 6 hours
+if (errorRateLast6h > 0.05 && errorRateLast30m > 0.05) {
+  alert('Slow SLO burn');
+}
+```
+
+Alert only when both windows confirm.
+
+## Alerting
+
+### Severity Levels
+
+| Severity | Criteria | Response Time | Notification |
+|----------|----------|---------------|---------------|
+| **P1** | Service down, data loss risk | 15 min | Page on-call + Slack |
+| **P2** | Degraded performance, SLO at risk | 1 hour | Page on-call |
+| **P3** | Non-critical issue, workaround exists | Next business day | Slack channel |
+| **P4** | Cosmetic / low-impact | Sprint backlog | Ticket only |
+
+### Runbooks
+
+Every alert must link to a runbook with:
+
+- Symptoms
+- Likely causes
+- Diagnostic steps
+- Remediation actions
+
+### Alert Fatigue Prevention
+
+- Tune thresholds to < 5 actionable alerts per on-call shift
+- Suppress duplicate alerts within 10-minute dedup window
+- Review alert quality monthly: snooze/delete alerts with < 20% action rate
+
+### Escalation Policies
+
+```yaml
+escalation:
+  - level: 1
+    notify: on-call-primary
+    timeout: 15m
+  - level: 2
+    notify: on-call-secondary
+    timeout: 15m
+  - level: 3
+    notify: engineering-lead
+```
+
+## Structured Error Reporting
+
+### Sentry Integration
+
+```typescript
+import * as Sentry from '@sentry/node';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  release: process.env.APP_VERSION,  // git SHA or semver
+  tracesSampleRate: 0.1,  // 10% for transactions
+  sampleRate: 1.0,        // 100% for errors
+});
+
+// Capture error with context
+Sentry.captureException(error, {
+  tags: {
+    correlationId: req.correlationId,
+  },
+  user: {
+    id: user.id,
+    email: user.email,  // Never include PII beyond what's necessary
+  },
+  extra: {
+    requestPath: req.path,
+    requestMethod: req.method,
+  },
+});
+```
+
+### Breadcrumbs
+
+Capture the last 50 user actions:
+
+```typescript
+Sentry.addBreadcrumb({
+  category: 'user-action',
+  message: 'User clicked checkout button',
+  level: 'info',
+  data: {
+    cartItems: cart.items.length,
+    total: cart.total,
+  },
+});
+```
+
+### Custom Fingerprints
+
+```typescript
+Sentry.captureException(error, {
+  fingerprint: ['{{ default }}', error.code],  // Group by error code
+});
+```
+
+## OpenTelemetry Semantic Conventions
+
+Follow [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/) v1.29+ for consistent attribute naming.
+
+### Standard Attribute Namespaces
+
+| Namespace | Scope | Key Attributes |
+|-----------|-------|----------------|
+| `http.*` | HTTP spans | `http.request.method`, `http.response.status_code`, `http.route`, `url.full` |
+| `db.*` | Database spans | `db.system`, `db.operation.name`, `db.collection.name`, `db.query.text` (sanitized) |
+| `rpc.*` | RPC spans | `rpc.system`, `rpc.service`, `rpc.method`, `rpc.grpc.status_code` |
+| `messaging.*` | Message queue spans | `messaging.system`, `messaging.operation.type`, `messaging.destination.name` |
+| `faas.*` | Serverless invocations | `faas.trigger`, `faas.invoked_name`, `faas.coldstart` |
+| `cloud.*` | Cloud provider context | `cloud.provider`, `cloud.region`, `cloud.account.id` |
+
+### Resource Semantic Conventions
+
+Every service must declare resource attributes at startup:
+
+| Attribute | Requirement | Description |
+|-----------|-------------|-------------|
+| `service.name` | Required | Logical service name (e.g., `api-gateway`) |
+| `service.version` | Recommended | Semantic version (e.g., `1.4.2`) |
+| `deployment.environment.name` | Recommended | Environment (e.g., `production`) |
+| `service.instance.id` | Recommended | Unique instance ID (e.g., pod name) |
+
+### Span Status Codes
+
+| Code | When to Set |
+|------|-------------|
+| `UNSET` | Default (operation completed without indicating error) |
+| `OK` | Explicitly successful (use sparingly) |
+| `ERROR` | Operation failed (exception caught, 5xx response) |
+
+**Set to `ERROR` for:**
+- Server-side errors (5xx)
+- Unhandled exceptions
+
+**Do not set `ERROR` for client errors (4xx)** — those are valid responses.
+
+## Dashboard Standards
+
+### Required Dashboards Per Service
+
+| Dashboard | Contents |
+|-----------|----------|
+| **Service Health** | Request rate, error rate, latency p50/p95/p99, saturation |
+| **Business Metrics** | Key domain counters, conversion funnels, feature adoption |
+| **Dependencies** | Upstream/downstream latency, error rates, circuit breaker state |
+| **Infrastructure** | CPU, memory, disk, connection pools, queue depth |
+
+### Dashboard-as-Code
+
+Define dashboards in version-controlled JSON/YAML (Grafana provisioning, Terraform).
+
+**No manual dashboard creation in production.**
+
+### Panel Requirements
+
+- Descriptive title
+- Unit labels
+- Threshold lines for SLO targets
+- Link to relevant runbook or alert
+
+## Enforcement
+
+**CI gates:**
+- Logs use structured format (lint check)
+- No `console.log` in production code
+- OpenTelemetry instrumentation present
+
+**Code review checklist:**
+- [ ] Structured logging with required fields
+- [ ] No sensitive data in logs
+- [ ] Correlation ID propagated
+- [ ] Spans named according to conventions
+- [ ] Metrics use OpenTelemetry SDK
+- [ ] Alert runbooks linked
+
+## Related Rules
+
+- [Error Handling](/rules/error-handling) — Error logging and correlation
+- [Security Patterns](/rules/security-patterns) — Log sanitization
+- [API Design](/rules/api-design) — Tracing API requests

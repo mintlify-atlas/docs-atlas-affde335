@@ -1,0 +1,353 @@
+---
+title: "hatch3r status"
+description: "Check sync status between canonical .agents/ and generated files"
+---
+
+## Overview
+
+The `hatch3r status` command checks whether your tool-specific configuration files are in sync with your canonical `.agents/` directory. It compares generated outputs against what would be produced from the current canonical state.
+
+## Usage
+
+```bash
+hatch3r status
+```
+
+No options required - status automatically checks all configured tools.
+
+## What It Checks
+
+Status compares:
+
+1. **Managed blocks** - Content between `<!-- BEGIN MANAGED -->` and `<!-- END MANAGED -->` markers
+2. **Full files** - Complete file content for files without managed blocks
+3. **Generated outputs** - What each adapter would produce from current `.agents/` state
+
+For each configured tool, status checks:
+- Tool-specific config files (e.g., `.cursorrules`, `CLAUDE.md`)
+- Agent files in tool directories (e.g., `.vscode/`, `.claude/`)
+- MCP configurations
+- All files tracked in `managedFiles`
+
+## Status Types
+
+### In Sync (=)
+
+File content matches what would be generated:
+
+```
+= .cursorrules
+```
+
+**Action:** None needed
+
+### Drifted (~)
+
+File exists but content differs from canonical state:
+
+```
+~ CLAUDE.md (drifted)
+```
+
+**Causes:**
+- Modified `.agents/` files without running sync
+- Manual edits to managed blocks
+- Updated canonical content
+
+**Action:** Run `hatch3r sync` to update
+
+### Missing (+)
+
+File doesn't exist but should be generated:
+
+```
++ opencode.json (missing)
+```
+
+**Causes:**
+- Deleted managed file
+- Never synced after init
+- Added new tool to config
+
+**Action:** Run `hatch3r sync` to create
+
+## Output Format
+
+### By Tool
+
+Status groups results by tool:
+
+```
+cursor:
+  = .cursorrules
+  ~ .vscode/hatch3r-code-reviewer.md (drifted)
+  
+claude:
+  = CLAUDE.md
+  + .claude/hatch3r-debugger.md (missing)
+  
+opencode:
+  = opencode.json
+```
+
+### Summary
+
+Status ends with a summary:
+
+```
+╭─ Status ──────────────────────────────────────╮
+│                                               │
+│  = In sync: 5                                 │
+│  ~ Drifted: 2                                 │
+│  + Missing: 1                                 │
+│                                               │
+╰───────────────────────────────────────────────╯
+
+ℹ Run hatch3r sync to regenerate drifted/missing files.
+```
+
+### All In Sync
+
+When everything is synced:
+
+```
+╭─ Status ──────────────────────────────────────╮
+│                                               │
+│  = In sync: 8                                 │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+## Status Icons
+
+- `=` (green) - In sync, no action needed
+- `~` (yellow) - Drifted, run sync to update
+- `+` (red) - Missing, run sync to create
+
+## Examples
+
+### Check Status
+
+```bash
+hatch3r status
+```
+
+Shows sync status for all configured tools.
+
+### Before Committing
+
+```bash
+# Check what's out of sync
+hatch3r status
+
+# Sync if needed
+hatch3r sync
+
+# Verify
+hatch3r status
+
+# Commit
+git add .
+git commit -m "Update agent configuration"
+```
+
+### After Modifying Canonical Files
+
+```bash
+# Edit canonical files
+vim .agents/agents/hatch3r-code-reviewer.md
+vim .agents/rules/typescript.md
+
+# Check what needs updating
+hatch3r status
+
+# Should show:
+# ~ .cursorrules (drifted)
+# ~ CLAUDE.md (drifted)
+
+# Sync changes
+hatch3r sync
+```
+
+### After Deleting Files
+
+```bash
+# Accidentally deleted managed file
+rm .cursorrules
+
+# Check status
+hatch3r status
+# Shows: + .cursorrules (missing)
+
+# Restore by syncing
+hatch3r sync
+```
+
+### CI/CD Health Check
+
+```bash
+#!/bin/bash
+# Ensure everything is in sync
+
+hatch3r status
+if [ $? -ne 0 ]; then
+  echo "Files out of sync - run hatch3r sync"
+  exit 1
+fi
+```
+
+Note: Status exits with 0 even with drifted files. Use output parsing for CI.
+
+## How It Works
+
+1. **Reads manifest** - Loads `.agents/hatch.json` to get tool list
+2. **Generates virtual output** - Each adapter generates what files *should* contain
+3. **Reads actual files** - Loads current file content from disk
+4. **Compares content**:
+   - For managed files: Compares managed blocks only
+   - For full files: Compares entire content
+5. **Reports differences** - Shows which files are in sync, drifted, or missing
+
+## Managed Block Detection
+
+For files with managed blocks:
+
+```markdown
+# My File
+
+User content here (ignored by status)
+
+<!-- BEGIN MANAGED -->
+Generated content (checked by status)
+<!-- END MANAGED -->
+
+More user content (ignored by status)
+```
+
+Status only compares the managed block content.
+
+## When to Check Status
+
+Run `hatch3r status` when:
+
+- Before committing changes
+- After modifying `.agents/` files
+- After pulling changes from git
+- Before deploying or releasing
+- Debugging sync issues
+- Verifying manual edits didn't break sync
+- After adding/removing tools
+
+## Status vs Validate
+
+**Status:**
+- Checks if generated files match canonical state
+- Compares file content
+- Detects drift
+- Use before sync
+
+**Validate:**
+- Checks if `.agents/` structure is valid
+- Validates frontmatter and references
+- Detects errors
+- Use before making changes
+
+## Common Workflows
+
+### Edit-Validate-Sync-Status
+
+```bash
+vim .agents/agents/my-agent.md  # 1. Edit
+hatch3r validate                # 2. Validate structure
+hatch3r sync                    # 3. Generate outputs
+hatch3r status                  # 4. Verify sync
+```
+
+### Pull-Status-Sync
+
+```bash
+git pull                        # 1. Get changes
+hatch3r status                  # 2. Check drift
+hatch3r sync                    # 3. Sync if needed
+```
+
+### Daily Health Check
+
+```bash
+hatch3r status                  # Should show all "="
+```
+
+## Troubleshooting Drift
+
+### Persistent Drift
+
+If sync doesn't fix drift:
+
+```bash
+# 1. Check for syntax errors
+hatch3r validate
+
+# 2. Check managed blocks
+grep -n "BEGIN MANAGED" .cursorrules
+grep -n "END MANAGED" .cursorrules
+
+# 3. Force regenerate
+rm .cursorrules
+hatch3r sync
+```
+
+### Unexpected Changes
+
+If status shows drift you didn't make:
+
+```bash
+# See what changed
+git diff .cursorrules
+
+# Check canonical state
+cat .agents/agents/hatch3r-*.md
+
+# Regenerate to see new content
+hatch3r sync
+git diff .cursorrules
+```
+
+## Output Parsing
+
+For scripting:
+
+```bash
+# Count drifted files
+hatch3r status | grep "~" | wc -l
+
+# List drifted files
+hatch3r status | grep "~" | awk '{print $2}'
+
+# Check if sync needed
+if hatch3r status | grep -q "[~+]"; then
+  echo "Sync required"
+  hatch3r sync
+fi
+```
+
+## Prerequisites
+
+- `.agents/hatch.json` must exist (run `hatch3r init` first)
+- Must be run from repository root
+- Read permissions on `.agents/` and managed files
+
+## Performance
+
+Status is fast:
+- Generates virtual outputs (in memory)
+- Reads actual files
+- Compares content
+
+Typical runtime: {"<"}2 seconds for standard repos
+
+## See Also
+
+- [sync](/cli/sync) - Sync files after status shows drift
+- [validate](/cli/validate) - Validate canonical structure
+- [init](/cli/init) - Initial setup
+- [update](/cli/update) - Update templates

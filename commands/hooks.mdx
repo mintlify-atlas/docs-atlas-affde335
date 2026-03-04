@@ -1,0 +1,252 @@
+---
+title: Hooks
+description: Define and manage event-driven hooks that activate agents on project events
+---
+
+## Overview
+
+Define, edit, and manage event-driven hooks that automatically activate hatch3r agents when specific project events occur. Hook definitions are tool-agnostic — the adapter pipeline translates them into tool-native configurations during `npx hatch3r sync`.
+
+## When to Use
+
+- You want to automate agent activation on specific events
+- You need lint checks or tests to run before commits
+- You want auto-diagnosis when CI/CD fails
+- You need context loading at session start
+- You want to trigger agents on file saves, merges, or releases
+
+## How It Works
+
+<Steps>
+  <Step title="Discover Current State">
+    - Checks `/.agents/hooks/` for existing hook definition files
+    - Reads `/.agents/hatch.json` for configured tools and features
+    - Lists existing hooks with their event, agent, and conditions
+  </Step>
+
+  <Step title="Define Hook">
+    For adding a new hook:
+    - Selects an event (pre-commit, post-merge, ci-failure, file-save, etc.)
+    - Selects an agent to activate (lint-fixer, test-writer, reviewer, security-auditor, etc.)
+    - Optionally defines conditions (glob patterns, branch patterns)
+    - Writes hook definition file to `/.agents/hooks/{event}-{agent}.md`
+  </Step>
+
+  <Step title="Edit Existing Hook">
+    - Lists all hooks and asks which to edit
+    - Shows current definition
+    - Updates event, agent, conditions, or description
+  </Step>
+
+  <Step title="Remove a Hook">
+    - Lists all hooks and asks which to remove
+    - Deletes the hook definition file
+    - Tool-specific generated files are cleaned up on next `npx hatch3r sync`
+  </Step>
+
+  <Step title="Sync Hooks to Tools">
+    - Reads all hook definitions from `/.agents/hooks/`
+    - Describes what will be generated for each configured tool
+    - Runs `npx hatch3r sync` to apply changes
+  </Step>
+</Steps>
+
+## Available Events
+
+| Event | Description | Use Cases |
+|-------|-------------|----------|
+| `pre-commit` | Before a commit is created | Lint checks, secret scanning, test running |
+| `post-merge` | After a branch merge | Dependency updates, migration checks, notification |
+| `ci-failure` | When CI/CD pipeline fails | Auto-diagnosis, fix suggestions |
+| `file-save` | When a file is saved | Auto-formatting, auto-testing, live validation |
+| `session-start` | When a new coding session starts | Context loading, status checks |
+| `pre-push` | Before pushing to remote | Full test suite, build verification |
+| `pre-implementation` | Before implementing a sub-issue | Context loading, spec review, learning consultation |
+| `post-implementation` | After implementing a sub-issue | Learning capture, code quality check, doc updates |
+| `pre-review` | Before code review starts | Checklist generation, context preparation |
+| `post-review` | After code review completes | Fix tracking, learning capture, approval notifications |
+| `pre-release` | Before a release workflow | Changelog verification, version validation, dependency audit |
+| `post-release` | After a release completes | Monitoring setup, notification, deploy verification |
+| `pre-test` | Before test execution | Test environment setup, fixture preparation |
+| `post-test` | After test execution completes | Coverage reporting, flaky test detection, result analysis |
+| `on-error` | When any workflow step fails | Error diagnosis, auto-retry, escalation, incident logging |
+| `on-context-switch` | When agent context is refreshed | State persistence, handoff documentation |
+| `on-dependency-change` | When dependencies are added/updated/removed | Security audit, compatibility check, license validation |
+| `on-security-finding` | When a security issue is discovered | Alert escalation, auto-fix suggestions, incident creation |
+
+## Available Agents
+
+- `lint-fixer` — Automatic lint error resolution
+- `test-writer` — Test generation for new or changed code
+- `reviewer` — Code review and quality checks
+- `security-auditor` — Security vulnerability scanning
+- `ci-watcher` — CI/CD pipeline monitoring and diagnosis
+- `a11y-auditor` — Accessibility compliance checks
+- `perf-profiler` — Performance analysis and optimization
+- `dependency-auditor` — Dependency security and update checks
+- `docs-writer` — Documentation generation and updates
+
+## Hook Definition Format
+
+Hook files are created at `/.agents/hooks/{event}-{agent}.md` with this structure:
+
+```markdown
+---
+id: {event}-{agent}
+type: hook
+event: {selected-event}
+agent: {selected-agent}
+description: {description}
+globs: {comma-separated glob patterns, if any}
+branches: {comma-separated branch patterns, if any}
+priority: 50          # 1-100, lower runs first (optional)
+timeout: 30           # seconds (optional)
+---
+# Hook: {event} → {agent}
+
+{Description of what this hook does and when it activates.}
+
+## Activation
+
+- **Event:** {event}
+- **Agent:** {agent}
+- **Conditions:** {glob patterns, branch patterns, or "always"}
+
+## Tool-Specific Behavior
+
+- **Claude Code:** For session-start → SessionStart. Other events may use no-op or alternative strategy.
+- **Cursor:** Maps to glob-based rule activation in `.cursor/rules/`
+- **Others:** Hook definition stored; sync when adapter support is added
+```
+
+## Conditions (Optional)
+
+- **Glob patterns**: Which files trigger this hook (e.g., `src/**/*.ts`, `*.css`)
+- **Branch patterns**: Which branches (e.g., `main`, `release/*`)
+
+If no conditions are specified, the hook activates on every occurrence of the event.
+
+## Custom Events
+
+Define project-specific hook events beyond the built-in types:
+
+- **Event naming**: `custom:{domain}:{action}` (e.g., `custom:billing:subscription-change`)
+- **Event registration**: Add custom events to `hatch.json` under `hooks.customEvents`
+- **Event triggering**: Agents trigger custom events via `emit-hook custom:{name}`
+- **Event payload**: Custom events can pass structured data via JSON payload
+
+### Custom Event Definition in `hatch.json`
+
+```json
+{
+  "hooks": {
+    "customEvents": [
+      {
+        "name": "custom:billing:subscription-change",
+        "description": "Fired when a subscription plan changes",
+        "payload": { "userId": "string", "oldPlan": "string", "newPlan": "string" }
+      }
+    ]
+  }
+}
+```
+
+## Hook Chaining
+
+Hooks can trigger other hooks in sequence:
+
+- **Chain definition**: Define ordered hook chains in `hatch.json` under `hooks.chains`
+- **Execution order**: Hooks in a chain execute sequentially; failure in any hook stops the chain
+- **Error handling**: Chain-level error handlers can catch and handle failures
+- **Conditional chaining**: Hooks can conditionally trigger next hook based on output (pass/fail/skip)
+
+### Chain Definition in `hatch.json`
+
+```json
+{
+  "hooks": {
+    "chains": [
+      {
+        "id": "pre-release-pipeline",
+        "description": "Full pre-release validation chain",
+        "steps": [
+          { "hook": "pre-release-security-auditor", "on_fail": "stop" },
+          { "hook": "pre-release-test-writer", "on_fail": "stop" },
+          { "hook": "pre-release-docs-writer", "on_fail": "warn" }
+        ],
+        "on_error": "notify"
+      }
+    ]
+  }
+}
+```
+
+## Hook Execution Ordering
+
+When multiple hooks are registered for the same event:
+
+- **Priority**: Hooks have a priority field (1-100, lower runs first, default 50)
+- **Parallel vs Sequential**: Hooks at the same priority level run in parallel; different priority levels run sequentially
+- **Timeout**: Each hook has a configurable timeout (default 30 seconds). Timed-out hooks are reported as failures.
+- **Isolation**: Each hook runs in its own context
+
+### Priority Configuration
+
+Add `priority` and `timeout` to hook frontmatter:
+
+```markdown
+---
+id: pre-commit-lint-fixer
+type: hook
+event: pre-commit
+agent: lint-fixer
+priority: 10
+timeout: 60
+---
+```
+
+### Execution Example
+
+For `pre-commit` with three hooks:
+1. `lint-fixer` (priority 10) — runs first
+2. `security-auditor` (priority 20) — runs second
+3. `test-writer` (priority 50) and `reviewer` (priority 50) — run in parallel, third
+
+## Tool-Specific Behavior
+
+### Claude Code
+- `session-start` → `SessionStart` hook
+- Other events (pre-commit, post-merge, etc.) may use no-op or alternative strategy
+- **Note**: Claude Code's native hooks (PreToolUse, PostToolUse, SubagentStart) are tool-lifecycle events and do NOT map to git/project events
+
+### Cursor
+- Maps to glob-based rule activation in `.cursor/rules/`
+- Creates `.mdc` rule files in `.cursor/rules/hatch3r-hook-*.mdc`
+
+### Other Tools
+- Hook definitions stored; sync when adapter support is added
+
+## Sync to Tools
+
+After defining hooks, run `npx hatch3r sync` to generate tool-specific configurations:
+
+- **Claude Code**: Hook documentation appended to managed section of `CLAUDE.md`
+- **Cursor**: Glob-based `.mdc` rule files in `.cursor/rules/hatch3r-hook-*.mdc`
+- **Others**: No-op (hook definitions stored for future adapter support)
+
+## Error Handling
+
+- `/.agents/hooks/` doesn't exist: Creates it automatically
+- Invalid event type: Warns and shows the valid events table
+- Agent not found: Warns but allows (agent may be added later)
+- Adapter doesn't support hooks: Generates hook definition anyway, warns that sync for that tool is a no-op
+- Duplicate hook ID: Warns and asks to choose a different name or overwrite
+
+## Guardrails
+
+- Hook definitions are tool-agnostic — the adapters handle translation
+- Never deletes hook files without explicit user confirmation
+- Always validates event names against the known events list
+- Hook IDs must be unique across all hook definitions
+- The command creates hook DEFINITIONS only — actual hook registration happens via `npx hatch3r sync`
+- Does not modify adapter output files directly — they are managed by the sync pipeline

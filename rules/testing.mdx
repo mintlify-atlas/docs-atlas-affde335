@@ -1,0 +1,470 @@
+---
+title: Testing Standards
+description: Coverage thresholds, mocking strategy, property-based testing, mutation testing, and flaky test handling
+---
+
+# Testing Standards
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-testing`
+
+Defines comprehensive testing standards including coverage thresholds, deterministic test design, mocking strategy, property-based testing, mutation testing, and zero-tolerance flaky test policies.
+
+## Core Principles
+
+### Test Types and Tools
+
+| Type | Tool | Purpose |
+|------|------|----------|
+| Unit | Project test runner (Vitest, Jest) | Test individual functions and modules in isolation |
+| Integration | Test runner + emulators/mocks | Test interactions between modules |
+| E2E | Browser automation (Playwright) | Test complete user flows in real browsers |
+
+### Test Quality Requirements
+
+- **Deterministic** — Mock time where needed. No wall clock dependency. Same inputs always produce same outputs.
+- **Isolated** — Each test sets up and tears down its own state. No shared mutable state between tests.
+- **Fast** — Unit tests < 50ms. Integration tests < 2s. Slow tests indicate excessive dependencies.
+- **Named clearly** — Describe behavior, not implementation: `"should award 15 XP for 25-min focus block"`
+- **Regression coverage** — Every bug fix includes a test that fails before the fix and passes after.
+- **No network calls** — Unit tests must not make network calls. Use mocks or fakes.
+
+### Forbidden Patterns
+
+- No type escape hatches in tests (no `as any`, `@ts-ignore`)
+- No `.skip` or `.only` without a linked issue
+- No hardcoded delays (`setTimeout`, `sleep`) — use fake timers
+- No reliance on test execution order
+
+### Test Organization
+
+```
+tests/
+  unit/           # Unit tests
+  integration/    # Integration tests
+  e2e/            # End-to-end tests
+  fixtures/       # Shared test data
+```
+
+### Browser Verification
+
+For UI changes, verify visually in the browser via browser automation MCP after automated tests pass. Capture screenshots as evidence.
+
+## Coverage Thresholds
+
+### Minimum Coverage Targets
+
+| Metric | Project-Wide | Critical Modules* |
+|--------|--------------|-------------------|
+| Statement coverage | 80% | 90% |
+| Branch coverage | 70% | 85% |
+| Function coverage | 80% | 90% |
+
+*Critical modules: auth, payments, data persistence, security rules
+
+### Per-PR Coverage Gate
+
+- CI blocks merge if the PR decreases coverage by more than 1% in any metric
+- New code must not decrease overall coverage
+- Coverage reports published as PR comments for visibility
+
+### Coverage Exclusions
+
+```javascript
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    coverage: {
+      exclude: [
+        '**/*.d.ts',           // Type declarations
+        '**/generated/**',     // Generated code
+        '**/*.config.*',       // Config files
+        '**/dist/**',          // Build output
+        '**/.*.js',            // Dotfiles
+      ],
+    },
+  },
+});
+```
+
+## Mocking Strategy
+
+### Prefer Fakes Over Mocks
+
+```typescript
+// ✅ Fake: implements real interface with in-memory state
+class FakeDatabase implements Database {
+  private data = new Map<string, any>();
+
+  async get(id: string) {
+    return this.data.get(id);
+  }
+
+  async set(id: string, value: any) {
+    this.data.set(id, value);
+  }
+}
+
+// ❌ Mock: only useful when interaction is the behavior under test
+const mockDatabase = {
+  get: vi.fn(),
+  set: vi.fn(),
+};
+```
+
+### When to Use Each Strategy
+
+| Strategy | Use Case | Example |
+|----------|----------|----------|
+| **Fake** | Stateful dependencies | In-memory database, in-memory cache, fake file system |
+| **Stub** | Simple value returns | Config lookups, feature flags, date providers |
+| **Mock** | Verify interactions | Event emission, API called with specific args, telemetry |
+
+### Mock Boundaries, Not Internals
+
+```typescript
+// ✅ Mock at module/service boundaries
+const mockHttpClient = vi.fn();
+const mockDatabaseDriver = createFakeDatabase();
+
+// ❌ Never mock private functions or internal implementation details
+vi.spyOn(service, 'privateHelperMethod'); // Wrong
+```
+
+### Reset Mocks Between Tests
+
+```typescript
+beforeEach(() => {
+  vi.clearAllMocks(); // Reset call counts and mock state
+});
+
+afterEach(() => {
+  vi.restoreAllMocks(); // Restore original implementations
+});
+```
+
+### Type-Safe Mocks
+
+```typescript
+// ✅ Mock satisfies the interface
+const mockLogger: Logger = {
+  info: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn(),
+};
+
+// ❌ Avoid as any
+const mockLogger = { info: vi.fn() } as any; // Missing methods
+```
+
+### Never Mock the Unit Under Test
+
+If you need to mock part of the module you're testing, the module has too many responsibilities — refactor first.
+
+## Property-Based Testing
+
+### When to Use
+
+Use property-based testing for functions with wide input domains:
+
+- Parsers, serializers, validators
+- Encoders/decoders
+- Mathematical functions
+- Any pure function with complex input types
+
+### Define Invariants as Properties
+
+```typescript
+import { fc, test } from '@fast-check/vitest';
+
+// Round-trip property: encode then decode equals original
+test.prop([fc.object()])('round-trip serialization', (obj) => {
+  const serialized = serialize(obj);
+  const deserialized = deserialize(serialized);
+  expect(deserialized).toEqual(obj);
+});
+
+// Idempotency: applying twice equals applying once
+test.prop([fc.string()])('normalize is idempotent', (str) => {
+  const once = normalize(str);
+  const twice = normalize(once);
+  expect(twice).toBe(once);
+});
+
+// Monotonicity: input order preserved in output
+test.prop([fc.array(fc.integer())])('sort preserves order', (arr) => {
+  const sorted = sort(arr);
+  for (let i = 1; i < sorted.length; i++) {
+    expect(sorted[i]).toBeGreaterThanOrEqual(sorted[i - 1]);
+  }
+});
+```
+
+### Configuration
+
+- Use `fc.assert` with at least **100 runs** per property
+- Increase to **1000 runs** for critical paths
+- Enable **shrinking** — reduces failing inputs to minimal reproduction case
+
+### Regression Tests from Failures
+
+When a property test finds a failure:
+
+1. Note the minimal counterexample from shrinking
+2. Add it as a dedicated regression unit test
+3. Fix the bug
+4. Verify both the property test and regression test pass
+
+## Mutation Testing
+
+### Purpose
+
+Mutation testing measures test effectiveness beyond line coverage by introducing bugs and verifying tests catch them.
+
+### Mutation Score Targets
+
+| Scope | Target |
+|-------|--------|
+| Critical modules | 70% minimum |
+| Project-wide | 60% minimum |
+
+### CI Integration
+
+- Run mutation testing on a **weekly schedule** (too slow for per-PR)
+- Report results as a CI artifact
+- Track mutation score over time on the performance dashboard
+
+### Surviving Mutants
+
+A "surviving mutant" is a code change that doesn't cause any test to fail. This indicates:
+
+- The code is covered but not meaningfully tested
+- Tests pass regardless of behavior
+- False coverage
+
+**Fix by adding assertions** that detect the mutation:
+
+```typescript
+// Mutation: `return x + y;` → `return x - y;`
+// Surviving mutant indicates weak test
+
+// ❌ Weak test (mutation survives)
+test('adds numbers', () => {
+  add(2, 3); // No assertion
+});
+
+// ✅ Strong test (mutation detected)
+test('adds numbers', () => {
+  expect(add(2, 3)).toBe(5); // Fails if mutation changes + to -
+});
+```
+
+### Focus Effort on High-Risk Modules
+
+Prioritize mutation testing on modules where bugs would cause:
+
+- Data loss
+- Security vulnerability
+- Financial impact
+
+### Exclusions
+
+```javascript
+// stryker.conf.json
+{
+  "mutate": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",      // Exclude test files
+    "!src/generated/**",      // Exclude generated code
+    "!src/components/**/*.vue" // Exclude UI presentation logic
+  ]
+}
+```
+
+## Flaky Test Handling
+
+### Zero Tolerance Policy
+
+A flaky test erodes trust in the entire suite. **Fix or quarantine within 48 hours** of detection.
+
+### Quarantine Process
+
+1. Move flaky test to `tests/quarantine/` directory OR
+2. Tag with `.skip("FLAKY: #issue-number")`
+3. Create tracking issue immediately with:
+   - Failure logs
+   - Suspected root cause
+   - Reproduction steps
+   - Assigned owner
+
+### Retry Strategy in CI
+
+- Allow a maximum of **1 automatic retry** for the full test suite
+- Never retry individual tests silently — that masks flakiness
+- Log all retries for flakiness detection
+
+### Common Root Causes
+
+| Cause | Fix Pattern |
+|-------|-------------|
+| Shared mutable state | Use per-test setup/teardown, `structuredClone()` for fixtures |
+| Timing dependencies | Replace `setTimeout` with fake timers (`vi.useFakeTimers()`) |
+| Real clocks | Mock `Date.now()` and `new Date()` |
+| Port conflicts | Use dynamic port allocation (`port: 0`) |
+| Uncontrolled randomness | Seed random generators deterministically |
+| External service calls | Replace with mocks or use local emulators |
+
+### Flaky Test Metrics
+
+- **Target:** < 0.5% flaky rate (flaky runs / total runs)
+- **Alert threshold:** > 1% flaky rate
+- Track flaky test rate over time on the CI dashboard
+
+### Quarantine Review
+
+- Review quarantined tests **weekly**
+- Tests quarantined for more than **30 days** must be either:
+  - Fixed with root cause addressed, OR
+  - Deleted with written justification
+
+## Test Data Management
+
+### Factories Over Fixtures
+
+Use factory functions (builder pattern) to generate test data:
+
+```typescript
+// ✅ Factory with sensible defaults
+function buildUser(overrides?: Partial<User>): User {
+  return {
+    id: nanoid(),
+    email: `${nanoid()}@example.com`,
+    name: faker.person.fullName(),
+    role: 'user',
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+// Usage: override only relevant fields
+const admin = buildUser({ role: 'admin' });
+const specificUser = buildUser({ email: 'test@example.com' });
+```
+
+### No Shared Mutable Fixtures
+
+```typescript
+// ❌ Shared mutable fixture (tests can interfere)
+const fixture = { count: 0 };
+test('increments', () => fixture.count++);
+test('decrements', () => fixture.count--); // Depends on execution order
+
+// ✅ Per-test fixture
+test('increments', () => {
+  const fixture = { count: 0 };
+  fixture.count++;
+  expect(fixture.count).toBe(1);
+});
+```
+
+### Realistic Data
+
+```typescript
+// ❌ Magic strings
+const user = { name: "test", email: "foo@bar.com" };
+
+// ✅ Realistic data with faker
+import { faker } from '@faker-js/faker';
+
+const user = {
+  name: faker.person.fullName(),
+  email: faker.internet.email(),
+  birthdate: faker.date.past({ years: 30 }),
+};
+```
+
+### Deterministic Seeding
+
+```typescript
+// Seed faker per test file for reproducible failures
+import { faker } from '@faker-js/faker';
+
+faker.seed(12345); // Same seed = same data
+```
+
+### Fixture Files
+
+Acceptable for:
+
+- Large, complex, or externally-sourced test inputs
+- API response snapshots
+- Configuration samples
+
+Store in `tests/fixtures/`.
+
+## Snapshot Testing
+
+### Use Sparingly
+
+Snapshots are appropriate for:
+
+- Serialized output (JSON API responses, CLI output)
+- Rendered HTML structure where exact output matters
+- Stable outputs without timestamps or random IDs
+
+### Not Appropriate For
+
+- UI component visual appearance (use visual regression tests)
+- Objects with timestamps or random IDs (unstable)
+- Large objects > 100 lines (unreadable diffs)
+
+### Review Discipline
+
+Snapshot updates (`--update-snapshots`) must be reviewed as carefully as code changes.
+
+**Reviewers must verify:**
+
+- The new snapshot is intentionally correct
+- Not just "different" or "the test passes now"
+
+### Keep Snapshots Small
+
+Snapshot files > 100 lines suggest the test is asserting too broadly. Narrow the assertion to the relevant subset.
+
+### Inline vs External Snapshots
+
+```typescript
+// ✅ Inline snapshot (< 20 lines) — co-located with test
+expect(formatUser(user)).toMatchInlineSnapshot(`
+  "John Doe <john@example.com>"
+`);
+
+// External snapshot (≥ 20 lines) — goes to .snap file
+expect(largeObject).toMatchSnapshot();
+```
+
+### Snapshot File Naming
+
+`auth.test.ts` → `auth.test.ts.snap`
+
+## Enforcement
+
+**CI gates:**
+- All tests pass (no `.skip` without issue)
+- Coverage thresholds met
+- No flaky tests in main suite
+- Mutation score meets target (weekly check)
+
+**Code review checklist:**
+- [ ] Tests are deterministic (no real clocks, network calls, or randomness)
+- [ ] Tests use factories, not shared mutable fixtures
+- [ ] Coverage meets thresholds for new code
+- [ ] Property tests for wide-input-domain functions
+- [ ] Regression test for bug fixes
+
+## Related Rules
+
+- [Code Standards](/rules/code-standards) — Complexity limits
+- [Error Handling](/rules/error-handling) — Test error paths
+- [Component Conventions](/rules/component-conventions) — UI testing requirements

@@ -1,0 +1,497 @@
+---
+title: Migrations
+description: Database migration and schema change patterns ensuring backward compatibility and safe deployments
+---
+
+# Migrations
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-migrations`
+
+Defines database migration and schema change patterns ensuring backward compatibility, idempotent execution, and safe rollback procedures.
+
+## Backward Compatibility
+
+### Additive-Only Schema Changes
+
+Schema changes must be backward-compatible:
+
+```typescript
+// ✅ Add field with default
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;          // Existing
+  department?: string;   // ✅ New optional field
+}
+
+// ❌ Never remove or rename without migration
+interface User {
+  id: string;
+  email: string;
+  // name: string;  // ❌ Removed - breaks old code
+  fullName: string; // ❌ Renamed - breaks old code
+}
+```
+
+### Add Fields with Defaults
+
+**SQL:**
+
+```sql
+-- ✅ Add column with default
+ALTER TABLE users ADD COLUMN department VARCHAR(100) DEFAULT 'Engineering';
+
+-- ❌ Never add non-nullable column without default
+ALTER TABLE users ADD COLUMN department VARCHAR(100) NOT NULL;
+```
+
+**NoSQL (Firestore example):**
+
+```typescript
+// ✅ Add field with default in application code
+const user = {
+  ...existingUser,
+  department: existingUser.department ?? 'Engineering',
+};
+
+// ❌ Never assume field exists
+const dept = user.department.toUpperCase(); // Crashes if undefined
+```
+
+### Deprecation and Removal Process
+
+Removing fields requires a multi-phase migration:
+
+**Phase 1:** Add new field, keep old field
+
+```typescript
+interface User {
+  email: string;      // Old field
+  emailAddress: string; // New field
+}
+```
+
+**Phase 2:** Backfill new field from old field
+
+```typescript
+// Migration script
+for (const user of users) {
+  if (!user.emailAddress && user.email) {
+    user.emailAddress = user.email;
+    await updateUser(user);
+  }
+}
+```
+
+**Phase 3:** Update code to use new field (dual-read)
+
+```typescript
+const email = user.emailAddress ?? user.email; // Read from both
+```
+
+**Phase 4:** Update code to write to both fields
+
+```typescript
+const updates = {
+  email: newEmail,
+  emailAddress: newEmail,
+};
+```
+
+**Phase 5:** Remove old field references from code
+
+**Phase 6:** (Optional) Drop old field from schema
+
+## Migration Script Organization
+
+### Directory Structure
+
+```
+migrations/
+  001_add_user_department.ts
+  002_backfill_user_roles.ts
+  003_create_orders_table.sql
+  004_migrate_legacy_data.ts
+```
+
+### Naming Convention
+
+- Prefix with sequence number: `001_`, `002_`, etc.
+- Descriptive name: `add_user_department`, `backfill_user_roles`
+- Extension matches type: `.ts` for TypeScript, `.sql` for SQL
+
+### Migration Metadata
+
+```typescript
+interface Migration {
+  id: string;              // e.g., "001_add_user_department"
+  description: string;     // Human-readable description
+  executedAt?: Date;       // When migration ran
+  version?: string;        // Schema version after migration
+}
+```
+
+## Idempotent Migrations
+
+Every migration must be safe to re-run:
+
+### Check Before Apply
+
+```typescript
+// ✅ Check if migration already applied
+async function migrateAddDepartment() {
+  const users = await db.users.where('migratedAt', '==', null).get();
+  
+  for (const user of users) {
+    if (user.data().department) {
+      // Already migrated, skip
+      continue;
+    }
+
+    await user.ref.update({
+      department: 'Engineering',
+      migratedAt: new Date(),
+    });
+  }
+}
+```
+
+### Use Migration Markers
+
+```typescript
+// Mark document as migrated
+interface User {
+  id: string;
+  email: string;
+  migratedAt?: Date;      // Migration marker
+  migrationVersion?: number; // Schema version
+}
+
+// Skip already-migrated documents
+const needsMigration = await db.users
+  .where('migrationVersion', '<', 2)
+  .get();
+```
+
+### SQL Idempotency
+
+```sql
+-- ✅ Check before creating
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ✅ Check before adding column
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'users' AND column_name = 'department'
+  ) THEN
+    ALTER TABLE users ADD COLUMN department VARCHAR(100);
+  END IF;
+END $$;
+```
+
+## Progress Logging and Resumability
+
+### Log Progress
+
+```typescript
+async function migrateLargeDataset() {
+  const batchSize = 100;
+  let processed = 0;
+  let lastId: string | null = null;
+
+  while (true) {
+    const batch = await db.users
+      .where('id', '>', lastId ?? '')
+      .limit(batchSize)
+      .get();
+
+    if (batch.empty) break;
+
+    for (const doc of batch.docs) {
+      await migrateUser(doc);
+      processed++;
+      lastId = doc.id;
+
+      if (processed % 1000 === 0) {
+        console.log(`Migrated ${processed} users`);
+      }
+    }
+  }
+
+  console.log(`Migration complete. Total: ${processed} users`);
+}
+```
+
+### Handle Partial Failures
+
+```typescript
+async function migrateLargeDataset() {
+  const checkpoint = await loadCheckpoint();
+  let processed = checkpoint.processed ?? 0;
+  let lastId = checkpoint.lastId ?? null;
+
+  try {
+    // Migration logic
+  } catch (error) {
+    // Save checkpoint before throwing
+    await saveCheckpoint({ processed, lastId });
+    throw error;
+  }
+
+  // Clear checkpoint on success
+  await clearCheckpoint();
+}
+```
+
+## Testing Migrations
+
+### Test Against Emulator/Staging
+
+```bash
+# Run migration against local emulator
+export FIRESTORE_EMULATOR_HOST="localhost:8080"
+node migrations/001_add_user_department.js
+
+# Verify data integrity
+node scripts/verify-migration.js
+```
+
+### Verify Data Integrity
+
+```typescript
+async function verifyMigration() {
+  const users = await db.users.get();
+  
+  for (const user of users.docs) {
+    const data = user.data();
+    
+    // Check required fields exist
+    if (!data.department) {
+      console.error(`User ${user.id} missing department`);
+    }
+
+    // Check data types
+    if (typeof data.department !== 'string') {
+      console.error(`User ${user.id} department is not a string`);
+    }
+  }
+}
+```
+
+## Deployment Order
+
+Deploy in this order to prevent downtime:
+
+### 1. Deploy New Code (Handles Old + New Schema)
+
+```typescript
+// Code must handle both schemas during transition
+const email = user.emailAddress ?? user.email; // Read from new or old
+```
+
+### 2. Run Migration
+
+```bash
+# After new code is deployed
+node migrations/002_backfill_email_address.js
+```
+
+### 3. Remove Old Schema Handling
+
+```typescript
+// After migration completes, simplify code
+const email = user.emailAddress; // Only read from new field
+```
+
+**Never reverse this order.** Running migration before new code deploys will break the application.
+
+## Documentation
+
+### Document Schema Changes
+
+Update project data model spec with every migration:
+
+```markdown
+## User Schema v2
+
+Added in migration `002_add_user_department`:
+
+- `department` (string, optional): User's department. Defaults to "Engineering".
+- `migratedAt` (timestamp, optional): When document was migrated to v2.
+
+Deprecated:
+
+- `email` (string): Replaced by `emailAddress` in v3. Still supported for backward compatibility.
+```
+
+## Rollback Plan
+
+### Every Migration Requires Rollback Plan
+
+Document rollback procedure before running migration:
+
+```markdown
+## Migration: 003_create_orders_table
+
+**Forward:**
+```sql
+CREATE TABLE orders (...);
+```
+
+**Rollback:**
+```sql
+DROP TABLE IF EXISTS orders;
+```
+
+**Rollback risk:** Low. New table is unused by current code.
+```
+
+### Test Rollback Procedure
+
+```bash
+# Test rollback on staging
+1. Apply migration
+2. Verify data
+3. Execute rollback
+4. Verify original state restored
+```
+
+### Never Run Destructive Migrations Without Backup
+
+```bash
+# Backup before destructive migration
+pg_dump production_db > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Verify backup
+pg_restore --list backup_20260304_120000.sql
+
+# Then run migration
+psql production_db < migrations/005_drop_legacy_table.sql
+```
+
+## Hot Document Size Limits
+
+### Firestore Example
+
+Firestore documents have a 1 MB size limit:
+
+```typescript
+// ❌ Migration adds large array - may exceed 1 MB
+interface User {
+  id: string;
+  activities: Activity[]; // Could grow unbounded
+}
+
+// ✅ Use subcollection for unbounded data
+interface User {
+  id: string;
+  // activities moved to users/{id}/activities subcollection
+}
+```
+
+### Verify Size After Migration
+
+```typescript
+async function verifyDocumentSizes() {
+  const users = await db.users.get();
+  
+  for (const user of users.docs) {
+    const size = JSON.stringify(user.data()).length;
+    if (size > 900_000) { // 900 KB threshold
+      console.warn(`User ${user.id} is ${size} bytes (approaching 1 MB limit)`);
+    }
+  }
+}
+```
+
+## Example Migration Script
+
+```typescript
+import { db } from './firebase';
+
+interface MigrationCheckpoint {
+  processed: number;
+  lastId: string | null;
+}
+
+async function migrate() {
+  console.log('Starting migration: 002_add_user_department');
+
+  const batchSize = 100;
+  let processed = 0;
+  let lastId: string | null = null;
+
+  try {
+    while (true) {
+      const batch = await db.users
+        .where('migrationVersion', '<', 2)
+        .orderBy('id')
+        .startAfter(lastId ?? '')
+        .limit(batchSize)
+        .get();
+
+      if (batch.empty) break;
+
+      for (const doc of batch.docs) {
+        const user = doc.data();
+        
+        // Skip if already migrated (idempotency)
+        if (user.department) {
+          continue;
+        }
+
+        await doc.ref.update({
+          department: 'Engineering',
+          migrationVersion: 2,
+          migratedAt: new Date(),
+        });
+
+        processed++;
+        lastId = doc.id;
+
+        if (processed % 100 === 0) {
+          console.log(`Migrated ${processed} users`);
+        }
+      }
+    }
+
+    console.log(`Migration complete. Total: ${processed} users`);
+  } catch (error) {
+    console.error(`Migration failed after ${processed} documents`, error);
+    throw error;
+  }
+}
+
+// Run migration
+migrate().catch(console.error);
+```
+
+## Enforcement
+
+**Pre-deployment checklist:**
+- [ ] Migration script is idempotent
+- [ ] Tested against emulator or staging
+- [ ] Data integrity verified
+- [ ] Rollback plan documented and tested
+- [ ] Backward compatibility maintained
+- [ ] Data model spec updated
+- [ ] Backup verified (for destructive migrations)
+
+**Code review checklist:**
+- [ ] Schema change is additive (or follows multi-phase deprecation)
+- [ ] Migration script logs progress
+- [ ] Migration handles partial failures
+- [ ] Document size limits not exceeded
+
+## Related Rules
+
+- [API Design](/rules/api-design) — Additive-only API changes
+- [Error Handling](/rules/error-handling) — Migration error handling

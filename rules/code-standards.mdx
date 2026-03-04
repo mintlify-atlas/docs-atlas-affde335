@@ -1,0 +1,282 @@
+---
+title: Code Standards
+description: Code quality rules covering strict typing, naming conventions, architectural patterns, and dead code prevention
+---
+
+# Code Standards
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-code-standards`
+
+Enforces code quality and architectural consistency through strict typing, naming conventions, complexity limits, and modern TypeScript patterns.
+
+## Core Conventions
+
+### Type Safety
+- Enable strict type checking in `tsconfig.json`
+- No type escape hatches (`any`, `@ts-ignore`, or equivalent) without a linked issue explaining the exception
+- Use `satisfies` over `as` to preserve type narrowing while validating shape conformance
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|----------|
+| Functions | `camelCase` | `calculateUserScore()` |
+| Types/Interfaces | `PascalCase` | `UserProfile`, `ApiResponse` |
+| Constants | `SCREAMING_SNAKE` | `MAX_RETRY_ATTEMPTS` |
+| Component files | `PascalCase` | `QuestPanel.vue`, `UserAvatar.tsx` |
+| Logic files | `camelCase` | `userService.ts`, `dateUtils.ts` |
+
+### Complexity Limits
+- **Max function length:** 50 lines
+- **Max file length:** 400 lines  
+- **Cyclomatic complexity:** ≤ 10 per function
+- Exceed these limits only with documented justification and refactor plan
+
+### Framework Patterns
+- Use framework-recommended component patterns (typed props and emits in Vue, typed props in React)
+- Use stores/context for shared state — never mixins
+- Prefer composables/hooks over class inheritance
+- Use design tokens for colors, spacing, typography — no ad-hoc styling
+- All animations must respect `prefers-reduced-motion`
+
+### Pre-commit Discipline
+- Run `lint` and `typecheck` before committing
+- CI enforces zero warnings — new warnings block the pipeline
+
+## TypeScript-Specific Patterns
+
+### `satisfies` Over `as`
+
+Prefer `satisfies` to validate types while preserving narrowing:
+
+```typescript
+// ✅ Preferred: preserves literal types and validates shape
+const config = {
+  apiUrl: "https://api.example.com",
+  timeout: 5000,
+  retries: 3
+} as const satisfies Config;
+
+// ❌ Avoid: loses literal type inference, silences errors
+const config = {
+  apiUrl: "https://api.example.com",
+  timeout: 5000,
+  retries: 3
+} as Config;
+```
+
+**When to use:**
+- Use `satisfies Config` when you need shape validation but want to preserve the inferred type
+- Use `as const` for literal types in configuration objects and action types
+- Combine both: `as const satisfies Config` for validated immutable config
+
+### Discriminated Unions
+
+Model domain variants with discriminated unions:
+
+```typescript
+// Define variants with a common discriminant field
+type Result<T> = 
+  | { status: "success"; data: T }
+  | { status: "error"; error: Error }
+  | { status: "loading" };
+
+// Exhaustive handling with never check
+function handleResult<T>(result: Result<T>) {
+  switch (result.status) {
+    case "success":
+      return result.data; // type: T
+    case "error":
+      throw result.error; // type: Error
+    case "loading":
+      return null;
+    default:
+      const _exhaustive: never = result; // Compiler error if new variant added
+      throw new Error(`Unhandled case: ${_exhaustive}`);
+  }
+}
+```
+
+**Benefits:**
+- Compiler enforces handling all variants
+- Type narrowing works automatically in each branch
+- Adding new variants causes compile errors at every switch without a handler
+
+### Branded Types
+
+Prevent accidental interchange of semantically different primitives:
+
+```typescript
+// Define branded types
+type UserId = string & { readonly __brand: unique symbol };
+type OrderId = string & { readonly __brand: unique symbol };
+type Currency = number & { readonly __brand: unique symbol };
+
+// Factory functions with validation
+function createUserId(raw: string): UserId {
+  if (!/^usr_[a-z0-9]{16}$/.test(raw)) {
+    throw new Error("Invalid UserId format");
+  }
+  return raw as UserId;
+}
+
+function createOrderId(raw: string): OrderId {
+  if (!/^ord_[a-z0-9]{16}$/.test(raw)) {
+    throw new Error("Invalid OrderId format");
+  }
+  return raw as OrderId;
+}
+
+// Type-safe usage prevents mistakes
+function fetchUser(id: UserId) { /* ... */ }
+function fetchOrder(id: OrderId) { /* ... */ }
+
+const userId = createUserId("usr_abc123xyz456");
+const orderId = createOrderId("ord_def789uvw012");
+
+fetchUser(userId);   // ✅ OK
+fetchUser(orderId);  // ❌ Compile error: OrderId is not assignable to UserId
+```
+
+### Strict Utility Types
+
+```typescript
+// ✅ Prefer Readonly<T> for immutable parameters
+function processConfig(config: Readonly<Config>) { /* ... */ }
+
+// ✅ Use Record<string, never> for empty object type
+type EmptyObject = Record<string, never>; // Only matches {}
+
+// ❌ Avoid {} — it matches any non-nullish value
+type Bad = {}; // Matches {}, [], "string", 42, etc.
+
+// ✅ Validate Omit key existence
+type UserWithoutPassword = Omit<User, "password">; // OK if "password" exists on User
+// Add compile-time check:
+type SafeOmit<T, K extends keyof T> = Omit<T, K>;
+```
+
+## Architecture Patterns
+
+### Barrel Exports
+
+**Purpose:** Define public API boundaries at the module level
+
+```typescript
+// src/features/auth/index.ts (barrel file)
+export { login, logout, refreshToken } from './authService';
+export type { AuthUser, AuthToken } from './types';
+// Internal files like './authHelpers.ts' are NOT exported
+```
+
+**Rules:**
+- Use barrel files (`index.ts`) at module boundaries
+- Re-export only types and functions intended for external consumption
+- Never import from internal module files — always import from the barrel
+- Enforce with ESLint `no-restricted-imports` rule
+- Keep barrel files thin — only re-exports, no logic
+
+### Module Boundaries
+
+- Each module owns its types, logic, and tests
+- Cross-module imports go through barrel exports only
+- Circular imports between modules are forbidden
+- Use dependency inversion (interfaces at boundaries) to break cycles
+- Shared types live in `types/` or `shared/`, not duplicated per module
+
+### Dependency Injection
+
+```typescript
+// ✅ Inject dependencies via constructor/factory
+class UserService {
+  constructor(
+    private readonly db: Database,
+    private readonly logger: Logger
+  ) {}
+}
+
+// ❌ Avoid global imports of concrete implementations
+import { database } from '../database/instance'; // Tight coupling
+```
+
+**Benefits:**
+- Enables testability (inject fakes in tests)
+- Flexibility (swap implementations without changing consumers)
+- Clear dependency graph visible in function/constructor signatures
+
+## Import Ordering
+
+Enforce via linter rules (`eslint-plugin-import`). Canonical order:
+
+```typescript
+// 1. Built-in modules
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+// 2. External packages
+import express from 'express';
+import { z } from 'zod';
+
+// 3. Internal aliases
+import { formatDate } from '@/utils/date';
+import type { User } from '@/types';
+
+// 4. Relative imports
+import { calculateScore } from './scoring';
+import { logger } from '../lib/logger';
+
+// 5. Type-only imports (grouped separately)
+import type { Request, Response } from 'express';
+```
+
+**Rules:**
+- Separate each group with a blank line
+- Sort alphabetically within each group
+- Use `import type` for type-only imports where supported
+
+## Dead Code Prevention
+
+### Immediate Removal
+- Remove unused imports, variables, functions, and types immediately
+- Never comment out code "for later" — use version control history
+- Delete orphaned tests, fixtures, and documentation after feature removal
+
+### Automated Detection
+- Enable `noUnusedLocals` and `noUnusedParameters` in `tsconfig.json`
+- Enable ESLint `no-unused-vars` rule
+- Run these checks in CI as blocking gates
+
+### Feature Flag Cleanup
+- When a feature flag is fully rolled out (flag removed), delete the flag-off branch in the same PR
+- No flag-gated dead code should remain after rollout completion
+
+### Zero Tolerance for Commented Code
+- Commented-out code is never acceptable in committed code
+- Use `git log` and `git show` to retrieve old implementations if needed
+
+## Enforcement
+
+**Pre-commit hooks:**
+```bash
+npm run lint && npm run typecheck
+```
+
+**CI gates:**
+- Lint errors or warnings block merge
+- Type errors block merge
+- Unused imports/vars block merge
+
+**Code review checklist:**
+- [ ] No `any`, `@ts-ignore`, or type escape hatches without issue links
+- [ ] Function length ≤ 50 lines, file length ≤ 400 lines
+- [ ] Complexity ≤ 10 per function
+- [ ] All imports ordered correctly
+- [ ] No commented-out code
+- [ ] No unused variables or imports
+
+## Related Rules
+
+- [Testing Standards](/rules/testing) — Test dead code detection
+- [Error Handling](/rules/error-handling) — Result types and custom error classes
+- [Component Conventions](/rules/component-conventions) — UI-specific patterns

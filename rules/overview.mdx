@@ -1,0 +1,135 @@
+---
+title: Rules Overview
+description: Comprehensive guide to hatch3r's 22 engineering rules that ensure code quality, security, and architectural consistency
+---
+
+# Rules Overview
+
+Hatch3r enforces 22 engineering rules that automatically guide code quality, architecture, security, and operations. These rules apply to all agents, commands, and workflows without exception.
+
+## How Rules Work
+
+**Scope-based application:**
+- `scope: always` — Applied to every task in every context (chat, board pickup, workflows, commits)
+- `scope: conditional` — Applied when file globs match or context triggers the rule
+
+**Rule integration points:**
+- Loaded before every implementation task begins
+- Enforced during code review by `hatch3r-reviewer`
+- Validated during security audits by `hatch3r-security-auditor`
+- Checked during test generation by `hatch3r-test-writer`
+- Referenced in skill protocols and agent orchestration
+
+**Rule priority:**
+1. Security rules override all other considerations
+2. Architectural rules prevent tech debt accumulation
+3. Code quality rules ensure maintainability
+4. Operational rules enable reliable deployments
+
+## Rules by Category
+
+### Overview + Code Quality (5 rules)
+
+<CardGroup cols={2}>
+  <Card title="Code Standards" href="/rules/code-standards">
+    Strict typing, naming conventions, function complexity limits, and TypeScript patterns
+  </Card>
+  <Card title="Error Handling" href="/rules/error-handling">
+    Structured error hierarchies, retry strategies, and correlation tracking
+  </Card>
+  <Card title="Testing Standards" href="/rules/testing">
+    Coverage thresholds, property-based testing, mutation testing, and flaky test policies
+  </Card>
+  <Card title="Dependency Management" href="/rules/dependency-management">
+    Lockfile discipline, security audits, and bundle size impact assessment
+  </Card>
+  <Card title="Git Conventions" href="/rules/git-conventions">
+    Conventional commits, branch naming, and semantic versioning integration
+  </Card>
+</CardGroup>
+
+### Architecture (4 rules)
+
+<CardGroup cols={2}>
+  <Card title="API Design" href="/rules/api-design">
+    REST, GraphQL, and gRPC patterns with OpenAPI 3.1, authentication, and pagination
+  </Card>
+  <Card title="Component Conventions" href="/rules/component-conventions">
+    UI component structure, state patterns, form UX, and accessibility requirements
+  </Card>
+  <Card title="Agent Orchestration" href="/rules/agent-orchestration">
+    Mandatory delegation pipeline: researcher → implementer → quality specialists
+  </Card>
+  <Card title="Migrations" href="/rules/migrations">
+    Backward-compatible schema changes, idempotent migration scripts, and rollback plans
+  </Card>
+</CardGroup>
+
+### Security & Compliance (3 rules)
+
+<CardGroup cols={2}>
+  <Card title="Security Patterns" href="/rules/security-patterns">
+    Input validation, OWASP Top 10 2025, and OWASP Agentic Top 10 compliance
+  </Card>
+  <Card title="Observability" href="/rules/observability">
+    Structured logging, distributed tracing, metrics, SLO definitions, and alerting
+  </Card>
+  <Card title="Feature Flags" href="/rules/feature-flags">
+    Gradual rollout strategies, kill switches, OpenFeature standard, and stale flag detection
+  </Card>
+</CardGroup>
+
+### Additional Standards (10 rules)
+
+These rules apply conditionally based on context:
+
+- **Accessibility Standards** — WCAG 2.2 AA compliance, keyboard navigation, screen reader support
+- **Browser Verification** — Visual verification protocol for UI changes using browser automation
+- **CI/CD Standards** — Pipeline design, stage gates, deployment strategies, and rollback procedures
+- **Data Classification** — PII handling, encryption requirements, retention policies, and GDPR/CCPA
+- **Internationalization** — ICU MessageFormat 2.0, RTL support, locale management, and layout accommodations
+- **Learning Consultation** — Auto-consult project learnings before implementation to avoid past pitfalls
+- **Performance Budgets** — Core Web Vitals, API response times, database query limits, and enforcement
+- **Secrets Management** — Env var management, rotation policies, cloud secret managers, and emergency procedures
+- **Theming** — Dark mode, high contrast support, semantic color tokens, and theme detection
+- **Tooling Hierarchy** — GitHub CLI over MCP, documentation MCP for libraries, web research for current context
+
+## Rule Enforcement
+
+**Automated gates:**
+- Lint and type errors block commits (pre-commit hooks)
+- Test coverage regressions block PR merge (CI stage gate)
+- Security vulnerabilities block deployment (dependency scan gate)
+- Bundle size violations block merge (size-limit in CI)
+- Core Web Vitals regressions trigger alerts (Lighthouse CI)
+
+**Agent-enforced quality:**
+- `hatch3r-reviewer` validates adherence to code standards and architectural rules
+- `hatch3r-security-auditor` checks security patterns and data classification
+- `hatch3r-test-writer` ensures coverage thresholds and test quality standards
+- `hatch3r-a11y-auditor` validates accessibility standards for UI changes
+
+**Human oversight:**
+- PR review required for rule exceptions (documented with issue links)
+- Tech lead approval for performance budget overrides
+- Security team review for data classification changes
+
+## Customizing Rules
+
+Use `/hatch3r rule-customize` to create project-specific rule variants:
+
+```bash
+/hatch3r rule-customize code-standards --add "Max cyclomatic complexity: 15" --reason "Legacy codebase migration"
+```
+
+Customizations are tracked in `/.agents/rules/` and override base rules while maintaining the core structure.
+
+## Rule Updates
+
+Rules evolve with industry standards:
+- OWASP Top 10 updates (last: 2025 edition)
+- WCAG updates (current: 2.2 AA)
+- OpenTelemetry semantic conventions (current: v1.29+)
+- ICU MessageFormat updates (current: 2.0 Final Candidate)
+
+Check the [hatch3r repository](https://github.com/anomalyco/hatch3r) for the latest rule versions.

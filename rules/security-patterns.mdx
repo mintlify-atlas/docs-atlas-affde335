@@ -1,0 +1,618 @@
+---
+title: Security Patterns
+description: Input validation, OWASP Top 10 2025, and OWASP Agentic Top 10 compliance for application and AI security
+---
+
+# Security Patterns
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-security-patterns`
+
+Defines comprehensive security patterns including input validation, output encoding, authentication enforcement, fail-closed defaults, OWASP Top 10 2025, and OWASP Agentic Top 10 for AI/agentic security.
+
+## Input Validation
+
+### Validate at the Boundary
+
+Never trust data that has crossed a trust boundary:
+
+```typescript
+// Trust boundaries: API routes, form handlers, webhook receivers, CLI parsers
+
+import { z } from 'zod';
+
+const createUserSchema = z.object({
+  email: z.string().email().max(255),
+  name: z.string().min(1).max(100),
+  age: z.number().int().min(0).max(120).optional(),
+});
+
+app.post('/api/users', (req, res) => {
+  const result = createUserSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  
+  // result.data is validated and type-safe
+  createUser(result.data);
+});
+```
+
+### Allowlist Over Denylist
+
+```typescript
+// ✅ Allowlist: only permitted characters
+const usernameSchema = z.string().regex(/^[a-zA-Z0-9_-]{3,20}$/);
+
+// ❌ Denylist: always incomplete
+const usernameSchema = z.string().refine(
+  (val) => !val.includes('<') && !val.includes('>'),
+  'Invalid characters'
+);
+```
+
+### Enforce Limits and Formats
+
+```typescript
+const schema = z.object({
+  username: z.string().min(3).max(20),
+  email: z.string().email(),
+  url: z.string().url(),
+  uuid: z.string().uuid(),
+  date: z.string().datetime(),
+});
+```
+
+### Reject Unexpected Fields
+
+```typescript
+// ✅ Strict schema: rejects unknown keys
+const schema = z.object({ name: z.string() }).strict();
+
+schema.parse({ name: 'Alice', admin: true }); // Throws: unrecognized key "admin"
+
+// ❌ Passthrough: accepts unknown keys (attack surface)
+const schema = z.object({ name: z.string() }).passthrough();
+```
+
+### File Upload Validation
+
+```typescript
+import { fileTypeFromBuffer } from 'file-type';
+
+app.post('/upload', async (req, res) => {
+  const file = req.file;
+
+  // ✅ Validate by magic bytes, not extension
+  const type = await fileTypeFromBuffer(file.buffer);
+  const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
+  
+  if (!type || !allowedTypes.includes(type.mime)) {
+    return res.status(400).json({ error: 'Invalid file type' });
+  }
+
+  // ✅ Enforce size limit
+  if (file.size > 10_000_000) { // 10 MB
+    return res.status(400).json({ error: 'File too large' });
+  }
+
+  // ✅ Generate server-side filename (prevent path traversal)
+  const safeFilename = `${nanoid()}.${type.ext}`;
+  
+  // ✅ Reject path traversal
+  if (file.originalname.includes('..') || file.originalname.includes('\0')) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  await saveFile(safeFilename, file.buffer);
+});
+```
+
+## Output Encoding
+
+### Context-Aware Encoding
+
+```typescript
+// ✅ HTML context
+const escaped = escapeHtml(userInput);
+html = `<div>${escaped}</div>`;
+
+// ✅ URL context
+const encoded = encodeURIComponent(userInput);
+url = `https://example.com?q=${encoded}`;
+
+// ✅ JavaScript context
+const escaped = JSON.stringify(userInput);
+script = `const data = ${escaped};`;
+
+// ✅ CSS context
+const escaped = escapeCss(userInput);
+style = `color: ${escaped};`;
+```
+
+### Sanitize HTML
+
+```typescript
+import DOMPurify from 'isomorphic-dompurify';
+
+// ✅ Sanitize user-generated HTML
+const clean = DOMPurify.sanitize(userInput, {
+  ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'],
+  ALLOWED_ATTR: ['href'],
+});
+
+// ❌ Never concatenate raw user input into HTML
+html = `<div>${userInput}</div>`; // XSS vulnerability
+```
+
+### Parameterized Queries
+
+```typescript
+// ✅ Parameterized query
+const users = await db.query(
+  'SELECT * FROM users WHERE email = $1',
+  [email]
+);
+
+// ❌ String concatenation (SQL injection)
+const users = await db.query(
+  `SELECT * FROM users WHERE email = '${email}'`
+);
+```
+
+### Sanitize Logs
+
+```typescript
+const sensitiveFields = ['password', 'token', 'apiKey', 'secret', 'ssn'];
+
+function sanitizeLog(obj: any) {
+  const sanitized = { ...obj };
+  for (const field of sensitiveFields) {
+    if (field in sanitized) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+  return sanitized;
+}
+
+logger.info('User login', sanitizeLog({ email, password }));
+```
+
+## Authentication Enforcement
+
+### Auth Middleware on Every Route
+
+```typescript
+// ✅ Auth by default
+app.use(requireAuth);
+
+// Public routes require explicit opt-out
+app.get('/public/health', skipAuth, (req, res) => {
+  res.json({ status: 'ok' });
+});
+```
+
+### Token Validation
+
+```typescript
+import jwt from 'jsonwebtoken';
+
+function validateToken(token: string) {
+  try {
+    const payload = jwt.verify(token, publicKey, {
+      algorithms: ['RS256'],  // ✅ Pin algorithm (reject 'none')
+      audience: 'https://api.example.com',  // ✅ Verify audience
+      issuer: 'https://auth.example.com',   // ✅ Verify issuer
+    });
+
+    // ✅ Verify expiration (exp claim)
+    if (payload.exp < Date.now() / 1000) {
+      throw new Error('Token expired');
+    }
+
+    return payload;
+  } catch (error) {
+    throw new AuthError('Invalid token');
+  }
+}
+```
+
+### Session Security
+
+```typescript
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  cookie: {
+    httpOnly: true,       // ✅ Prevent JavaScript access
+    secure: true,         // ✅ HTTPS only
+    sameSite: 'strict',   // ✅ CSRF protection
+    maxAge: 3600000,      // 1 hour
+  },
+  rolling: true,          // Refresh on activity
+}));
+```
+
+### Rate Limiting
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,                    // 5 requests per window
+  message: 'Too many login attempts',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/auth/login', authLimiter, loginHandler);
+```
+
+## Fail-Closed Defaults
+
+### Default Deny for Authorization
+
+```typescript
+// ✅ Explicit allow, default deny
+function canAccessResource(user: User, resource: Resource): boolean {
+  // Must explicitly return true
+  if (user.role === 'admin') return true;
+  if (resource.ownerId === user.id) return true;
+  
+  // Default deny
+  return false;
+}
+
+// ❌ Default allow
+function canAccessResource(user: User, resource: Resource): boolean {
+  if (user.banned) return false;
+  return true; // Everyone else allowed
+}
+```
+
+### Error Handlers Don't Leak State
+
+```typescript
+// ✅ Safe error handler
+app.use((error, req, res, next) => {
+  logger.error('Request failed', { error, correlationId: req.id });
+  
+  res.status(500).json({
+    code: 'INTERNAL_ERROR',
+    message: 'An unexpected error occurred',
+    correlationId: req.id,
+  });
+});
+
+// ❌ Leaky error handler
+app.use((error, req, res, next) => {
+  res.status(500).json({
+    error: error.stack,        // ❌ Stack trace
+    query: req.query,          // ❌ Query details
+    env: process.env,          // ❌ Environment vars
+  });
+});
+```
+
+## OWASP Top 10 2025
+
+See the full implementation examples in the source rule file. Key areas:
+
+### A01 — Broken Access Control
+- Enforce server-side access control
+- Deny by default
+- Resource-level ownership checks
+- Disable directory listing
+
+### A02 — Cryptographic Failures
+- Encrypt data at rest (AES-256) and in transit (TLS 1.2+)
+- Hash passwords with bcrypt/scrypt/Argon2id
+- Never use deprecated algorithms (MD5, SHA-1, DES, RC4)
+
+### A03 — Injection
+- Parameterized queries for all database operations
+- Context-aware output encoding
+- Allowlist validation for all external input
+
+### A04 — Insecure Design
+- Threat modeling during design phase (STRIDE, attack trees)
+- Write abuse-case user stories
+- Design rate limiting and cost controls into architecture
+
+### A05 — Security Misconfiguration
+- Harden all environments (remove defaults, disable unused features)
+- Send security headers on every response (HSTS, CSP, X-Content-Type-Options)
+- Review cloud permissions quarterly
+
+### A06 — Vulnerable and Outdated Components
+- Run `npm audit` in CI on every build
+- Pin dependency versions in lockfiles
+- SLA for vulnerability remediation: critical within 24h
+
+### A07 — Identification and Authentication Failures
+- Implement MFA for privileged accounts
+- Protect against credential stuffing (rate limiting, CAPTCHA)
+- Generate new session ID on login
+
+### A08 — Software and Data Integrity Failures
+- Verify integrity of software updates and dependencies
+- Use lockfiles with `npm ci` in CI
+- Pin GitHub Actions by commit SHA
+
+### A09 — Security Logging and Monitoring Failures
+- Log all auth events, access control failures, validation failures
+- Use structured logging with correlation IDs
+- Never log PII, passwords, tokens
+
+### A10 — Mishandling of Exceptional Conditions
+- Catch and handle every error at point of occurrence
+- Fail closed on authorization check errors
+- Global exception handler as safety net
+
+## OWASP Agentic Top 10
+
+### ASI01 — Agent Goal Hijack (Prompt Injection)
+
+```typescript
+// ✅ Separate system prompts from user input
+const prompt = [
+  { role: 'system', content: systemInstructions },
+  { role: 'user', content: userMessage },  // Never let user override system
+];
+
+// ✅ Scan for injection patterns
+function detectInjection(userInput: string): boolean {
+  const injectionPatterns = [
+    /ignore.*(previous|above|prior).*instructions/i,
+    /new instructions:/i,
+    /system.*role/i,
+  ];
+  
+  return injectionPatterns.some(pattern => pattern.test(userInput));
+}
+
+// ✅ Tag external content
+const augmentedPrompt = `
+User query: ${userQuery}
+
+External context (from RAG, not user input):
+${retrievedDocs}
+`;
+```
+
+### ASI02 — Tool Misuse & Exploitation
+
+```typescript
+// ✅ Deny-by-default tool access
+const allowedTools = {
+  'researcher': ['read_file', 'search_code'],
+  'implementer': ['read_file', 'write_file', 'run_tests'],
+};
+
+function canUseTool(agentRole: string, toolName: string): boolean {
+  return allowedTools[agentRole]?.includes(toolName) ?? false;
+}
+
+// ✅ Enforce parameter schemas
+const toolSchema = z.object({
+  path: z.string().max(500).regex(/^[a-zA-Z0-9/_.-]+$/),
+  content: z.string().max(100000),
+});
+
+// ✅ Rate-limit tool invocations
+const toolRateLimiter = rateLimit({
+  windowMs: 60000,
+  max: 100,  // 100 tool calls per minute
+});
+```
+
+### ASI03 — Identity & Privilege Abuse
+
+```typescript
+// ✅ Assign unique agent IDs
+const agentId = `agent_${nanoid()}`;
+
+// ✅ Apply least privilege
+const agentCredentials = {
+  userId: user.id,
+  permissions: ['read:own_data'],  // Scoped, not full user permissions
+  expiresAt: Date.now() + 3600000,  // 1 hour
+};
+
+// ✅ Log all actions
+logger.info('Agent action', {
+  agentId,
+  action: 'read_file',
+  resource: filePath,
+  userId: user.id,
+});
+```
+
+### ASI04 — Supply Chain Vulnerabilities
+
+```typescript
+// ✅ Pin MCP server versions
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context-labs/context7-mcp@1.2.3"]  // Pinned version
+    }
+  }
+}
+
+// ❌ Auto-install unverified packages
+{
+  "command": "npx",
+  "args": ["-y", "untrusted-package"]  // No version pin
+}
+```
+
+### ASI05 — Unexpected Code Execution
+
+```typescript
+// ✅ Sandbox code execution
+import { VM } from 'vm2';
+
+const vm = new VM({
+  timeout: 5000,
+  sandbox: { /* limited global scope */ },
+});
+
+const result = vm.run(agentGeneratedCode);
+
+// ✅ Require human review for sensitive operations
+if (codeAccessesFileSystem || codeAccessesNetwork) {
+  await requestHumanApproval(agentGeneratedCode);
+}
+```
+
+### ASI06 — Memory & Context Poisoning
+
+```typescript
+// ✅ Validate cached context before reuse
+function validateCachedContext(context: any): boolean {
+  const schema = z.object({
+    query: z.string(),
+    results: z.array(z.any()),
+    timestamp: z.number(),
+  });
+
+  const result = schema.safeParse(context);
+  if (!result.success) return false;
+
+  // ✅ Check TTL
+  if (Date.now() - context.timestamp > 3600000) return false;
+
+  return true;
+}
+
+// ✅ Tag RAG-retrieved content
+const taggedContent = {
+  source: 'rag',  // Not trusted system instruction
+  trustLevel: 'external',
+  content: retrievedDocs,
+};
+```
+
+### ASI07 — Insecure Inter-Agent Communication
+
+```typescript
+// ✅ Authenticate agent-to-agent messages
+const message = {
+  from: agentId,
+  to: targetAgentId,
+  payload: data,
+  signature: sign(data, agentPrivateKey),
+};
+
+// ✅ Verify signature
+function verifyAgentMessage(message: any): boolean {
+  return verify(message.payload, message.signature, agentPublicKey);
+}
+
+// ✅ Scope delegation tokens
+const delegationToken = {
+  permissions: ['read:file'],  // Subset of parent permissions
+  expiresAt: Date.now() + 600000,  // 10 minutes
+};
+```
+
+### ASI08 — Cascading Failures
+
+```typescript
+// ✅ Circuit breaker between agent stages
+const breaker = new CircuitBreaker(agent.execute, {
+  timeout: 30000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 60000,
+});
+
+// ✅ Enforce timeouts
+const result = await Promise.race([
+  agent.execute(task),
+  timeout(30000),
+]);
+
+// ✅ Log error chains
+if (failureCount >= 3) {
+  logger.error('Agent chain failure', { failureCount, errors });
+  throw new Error('Halting agent chain');
+}
+```
+
+### ASI09 — Human-Agent Trust Exploitation
+
+```typescript
+// ✅ Mandatory human confirmation for destructive operations
+const requiresConfirmation = [
+  'delete_file',
+  'execute_payment',
+  'modify_database',
+];
+
+if (requiresConfirmation.includes(operation)) {
+  const confirmed = await requestHumanConfirmation({
+    operation,
+    details: operationDetails,
+  });
+  
+  if (!confirmed) {
+    throw new Error('Operation cancelled by user');
+  }
+}
+
+// ✅ Enforce cost limits
+if (estimatedTokens > 100000) {
+  throw new Error('Token limit exceeded');
+}
+```
+
+### ASI10 — Rogue Agents
+
+```typescript
+// ✅ Monitor outputs for policy violations
+function detectPolicyViolation(output: string): boolean {
+  const violations = [
+    /password.*[:=]/i,
+    /api.*key.*[:=]/i,
+    /<script>/i,
+  ];
+  
+  return violations.some(pattern => pattern.test(output));
+}
+
+// ✅ Validate outputs against schema
+const outputSchema = z.object({
+  type: z.enum(['text', 'code', 'json']),
+  content: z.string().max(100000),
+});
+
+// ✅ Kill switch
+function terminateAgent(agentId: string) {
+  agents[agentId].terminate();
+  revokeCredentials(agentId);
+  logger.warn('Agent terminated', { agentId, reason: 'policy violation' });
+}
+```
+
+## Enforcement
+
+**CI gates:**
+- Security audit passes (no high/critical vulnerabilities)
+- Secret scanning passes (gitleaks, TruffleHog)
+- SAST analysis passes (Semgrep, CodeQL)
+
+**Code review checklist:**
+- [ ] Input validated at boundary with allowlist
+- [ ] Outputs context-encoded
+- [ ] Auth enforced on all routes (or explicit opt-out)
+- [ ] No secrets in code, comments, or logs
+- [ ] Parameterized queries used
+- [ ] Error handlers don't leak internal details
+
+## Related Rules
+
+- [Error Handling](/rules/error-handling) — Sanitization and fail-closed
+- [API Design](/rules/api-design) — Auth and CORS
+- [Secrets Management](/rules/secrets-management) — Secret handling patterns

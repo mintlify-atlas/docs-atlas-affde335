@@ -1,0 +1,534 @@
+---
+title: board-pickup
+description: Pick up epics or issues from the GitHub board for development with dependency-aware selection, collision detection, and parallel sub-agent delegation
+---
+
+## Overview
+
+Pick up an epic (with all sub-issues), a single sub-issue, a standalone issue, or a batch of independent issues for development. Supports single-issue and multi-issue batch modes. Handles dependency-aware selection, collision detection, branching, parallel sub-agent delegation, testing, and PR creation.
+
+## Purpose
+
+The `board-pickup` command orchestrates the full implementation pipeline:
+
+- **Dependency-aware selection**: Only shows available work (blockers satisfied)
+- **Collision detection**: Prevents overlapping work and merge conflicts
+- **Batch mode**: Process multiple independent issues in parallel
+- **Parallel sub-agent delegation**: One implementer per issue running concurrently
+- **Specialist delegation**: Automatic code review, testing, security audit, and documentation
+- **Branch creation**: Type-prefixed branches following conventions
+- **PR creation**: Auto-linked to epics and sub-issues with proper status transitions
+
+## When to Use
+
+Run `board-pickup` when:
+
+- Ready to implement one or more issues from the board
+- Want to work on the next highest-priority ready issue (auto-pick)
+- Need to batch multiple independent issues for parallel development
+- Continuing epic implementation with remaining sub-issues
+- All blockers for an issue are satisfied
+
+## Workflow
+
+<Steps>
+
+### List Available Work (Dependency-Aware)
+
+1. **Fetch and parse board state**
+   - Retrieves all open issues with labels, sub-issues, dependencies
+   - Parses `## Dependencies` sections (hard and soft blockers)
+   - Parses `## Implementation Order` for epics
+   - Caches all data for reuse
+
+2. **Build dependency graph**
+   - Hard dependencies block pickup
+   - Soft dependencies are advisory only
+   - Categorizes issues: Available / Blocked / Not Ready
+
+3. **Sort by implementation order**
+   - Within epics: `## Implementation Order` position
+   - Across board: priority first, then dependency order
+   - Groups parallelizable items
+
+4. **Present the board**
+   - Available Work (ready + unblocked)
+   - Independent issues (parallelizable)
+   - Waiting on Dependencies
+   - Not Ready
+
+5. **Selection options**
+   - (a) entire epic
+   - (b) specific sub-issue
+   - (c) standalone issue
+   - (d) filter by label
+   - (e) auto-pick
+   - **(f) batch — pick up multiple independent issues in parallel**
+
+### Auto-Pick Mode
+
+When no specific issue referenced:
+
+**Selection criteria**:
+1. Available: `status:ready`, all blockers satisfied, not `status:in-progress`
+2. `executor:agent` or `executor:hybrid` (skips `executor:human`)
+3. Follows board Implementation Order
+4. Tiebreaker: epic sub-issues > standalone; highest priority; most downstream unblocking
+
+**Auto-pick batch mode**: Selects all independent issues with no mutual dependencies (configurable via `--max-batch`)
+
+### Scope Selection & Dependency Validation
+
+1. **Dependency pre-check**
+   - Verifies all blockers are satisfied
+   - Offers to pick blocker if unsatisfied
+
+2. **Readiness pre-check**
+   - Warns if not `status:ready` or `status:in-progress`
+   - Offers to run `board-fill` or pick different issue
+
+3. **Scope selection**
+   - **Epic**: Shows sub-issue breakdown with dependencies
+   - **Sub-issue**: Shows in context of parent epic
+   - **Standalone**: Proceeds to collision check
+
+4. **Batch validation** (multi-issue pickup)
+   - Validates each issue in batch
+   - Builds cross-issue dependency graph
+   - Groups into dependency levels (parallel vs. sequential)
+   - Removes issues failing validation
+
+### Collision Detection
+
+1. **In-progress issues**: Finds issues with `status:in-progress`
+2. **Open PRs**: Searches for open pull requests
+3. **Overlap analysis**: Flags hard/soft collisions or none
+4. **Intra-batch overlap**: Checks for file conflicts within batch
+
+### Specification Generation (Optional)
+
+For complex features or refactors lacking detailed specs:
+
+1. **When to generate**
+   - Issue lacks implementation spec
+   - Type is `feature` or `refactor`
+   - Has complexity label or is an epic
+
+2. **Specification structure**
+   - Problem Statement
+   - Proposed Solution
+   - Technical Design (data model, API, UI changes)
+   - Implementation Plan
+   - Test Strategy
+   - Risks & Mitigations
+   - Out of Scope
+
+3. **Validation and storage**
+   - Presents spec to user for validation
+   - Saves as comment on GitHub issue
+
+### Update Issue Status
+
+Marks issues `in-progress` immediately after collision detection:
+
+1. **Single issue**: Transitions to `status:in-progress`
+2. **Sub-issue pickup**: Also marks parent epic `status:in-progress`
+3. **Epic pickup**: Marks ALL remaining sub-issues `status:in-progress`
+4. **Batch mode**: Marks ALL issues in batch `status:in-progress`
+5. **Sync Projects v2**: Updates board status to "In progress"
+
+### Branch Creation
+
+1. **Branch prefix by type**
+   - `type:bug` → `fix/`
+   - `type:feature` → `feat/`
+   - `type:refactor` → `refactor/`
+   - `type:qa` → `qa/`
+
+2. **Short description from issue title**
+   - Lowercase, hyphens, 3-5 words max
+
+3. **Batch pickup**: Uses `batch/{short-description}`
+   - Or type prefix if all issues share same type
+
+4. **Reuse handling**: Prompts to reuse / delete+recreate / rename
+
+5. **Base branch**: Uses `board.defaultBranch` from `hatch.json`
+
+### Executor Check & Delegate Implementation
+
+Checks `executor:` label and delegates appropriately:
+
+- `executor:agent` — Proceeds autonomously
+- `executor:hybrid` — Asks for human direction first
+- `executor:human` — Asks if user wants agent assistance
+
+**Delegation paths**:
+- **Single standalone issue** → One implementer sub-agent (6a)
+- **Epic with sub-issues** → One implementer per sub-issue (6b)
+- **Multiple standalone issues (batch)** → One implementer per issue, parallel (6c)
+
+#### 6a. Single Standalone Issue
+
+1. **Context gathering** (researcher sub-agent)
+   - Skip for trivially simple issues (`risk:low` + `priority:p3`)
+   - Research modes by issue type
+   - Depth by risk level
+
+2. **Core implementation** (implementer sub-agent)
+   - Always delegates to dedicated sub-agent
+   - Includes issue details, researcher output, learnings
+   - Follows hatch3r-implementer protocol
+   - No branches, commits, or PRs (handled by orchestrator)
+
+3. **Post-implementation specialists**
+   - **Always spawn**: reviewer, test-writer, security-auditor
+   - **Evaluate**: docs-writer (when API/behavior changes)
+   - **Conditional**: lint-fixer, a11y-auditor, perf-profiler
+   - All run in parallel
+
+#### 6b. Epics — Sub-Agent Delegation
+
+1. **Parse sub-issues into dependency levels**
+   - Level 1: No unsatisfied blockers
+   - Level N: Blockers all in levels < N
+   - Within each level: parallelizable
+
+2. **Prepare shared context** (researcher sub-agent)
+   - Research epic goal, scope, constraints
+   - Shared output included in all implementer prompts
+
+3. **Execute level-by-level**
+   - Spawns one implementer per sub-issue in current level
+   - All sub-agents run in parallel within level
+   - Awaits level completion before advancing
+   - Reviews for conflicts and integration issues
+
+4. **Post-delegation verification**
+   - Combined quality check across all changes
+   - Resolves cross-sub-issue integration issues
+
+#### 6c. Multi-Issue Batch — Parallel Delegation
+
+1. **Group issues into dependency levels**
+   - Level 1: No dependencies on other batch issues
+   - Level N: Depends on issues in levels < N
+   - Within each level: parallelizable
+
+2. **Context gathering** (parallel researchers)
+   - Skip if all issues are trivially simple
+   - One researcher per issue (unlike epics)
+   - All run in parallel
+
+3. **Execute level-by-level**
+   - One implementer per issue in current level
+   - All run in parallel within level
+   - Reviews for conflicts between sub-agents
+
+4. **Post-batch verification**
+   - Combined quality check across all batch changes
+   - Resolves cross-issue conflicts
+
+5. **Post-implementation specialists**
+   - Same as single issue (6a.3) but reviews entire batch
+   - All run in parallel
+
+### Quality Verification
+
+Runs project's quality checks:
+
+1. Linting
+2. Type checking
+3. Tests
+4. Verifies all acceptance criteria met
+5. Confirms no dead code remains
+6. Checks project-specific invariants
+
+### Commit & Push
+
+**Single issue or epic**:
+```bash
+git add -A
+git commit -m "{type}: {short description} (#{issue})"
+git push -u origin {branch-name}
+```
+
+**Batch mode**:
+```bash
+git add -A
+git commit -m "batch: {short description} (#N, #M, #K)"
+git push -u origin {branch-name}
+```
+
+### Create Pull Request
+
+1. **Title**: `{type}: {short description} (#{issue})`
+   - Batch: `batch: {short description} (#N, #M, #K)`
+
+2. **Determine epic link type**
+   - `Closes #<epic>` if ALL sub-issues addressed
+   - `Relates to #<epic>` if partial (some sub-issues remain)
+
+3. **Body**: Uses repository's PR template
+   - Summary, Type, Changes, Testing, Rollout plan
+   - **Related Issues** section:
+     - `Closes #N` for each addressed issue
+     - Epic closure or relation
+     - Batch mode: lists all issues with per-issue summaries
+
+4. **Create**: Uses `gh pr create` (primary) or `create_pull_request` MCP
+
+5. **Link PR to epic**: Comments on epic with PR reference
+
+### Post-PR Label Transition & Project Board Sync
+
+1. **Transition to `status:in-review`**
+   - Each `Closes #N` issue
+   - Parent epic (if all sub-issues addressed)
+
+2. **Sync Projects v2** for each item:
+   - The PR itself
+   - Each `Closes #N` issue
+   - Parent epic (set to "In review" if all addressed, "In progress" if partial)
+
+### Post-PR Housekeeping
+
+1. **Confirm epic closure** (all sub-issues addressed)
+2. **Remind about auto-close** on merge
+3. **Partial epic**: Prompts to continue with next sub-issue or stop
+4. **Refresh board dashboard** (mandatory)
+5. **Capture learnings** (if applicable)
+
+### Capture Learnings
+
+After PR creation, captures learnings from the session:
+
+1. **Reflect on implementation**
+   - Unexpected challenges or blockers?
+   - Patterns or approaches that worked well?
+   - Decisions future developers should know?
+   - Pitfalls to avoid?
+
+2. **Create learning files** in `/.agents/learnings/`
+   - Includes issue number as source
+   - Tags with relevant areas
+
+3. **Skip silently if no significant learnings**
+
+</Steps>
+
+## Configuration in hatch.json
+
+Reads configuration from `/.agents/hatch.json`:
+
+```json
+{
+  "owner": "your-org",
+  "repo": "your-repo",
+  "board": {
+    "owner": "your-org",
+    "repo": "your-repo",
+    "defaultBranch": "main",
+    "projectNumber": 1,
+    "statusFieldId": "PVTF_...",
+    "statusOptions": {
+      "backlog": "option_id_1",
+      "ready": "option_id_2",
+      "inProgress": "option_id_3",
+      "inReview": "option_id_4",
+      "done": "option_id_5"
+    }
+  }
+}
+```
+
+## Examples
+
+### Auto-Pick Single Issue
+
+```
+User: board-pickup
+
+Agent: [Fetches board state...]
+
+Available Work (ready + unblocked):
+  Independent (parallelizable):
+    #47 — Rate limiting middleware [type:feature] [executor:agent] [priority:p1] [no blockers]
+    #49 — API documentation [type:docs] [executor:agent] [priority:p2] [recommended after #46]
+
+Pick up #47? Or batch: #47, #49 (independent, parallelizable).
+
+User: yes (single)
+
+Agent: [Dependency pre-check: satisfied]
+[Collision detection: no conflicts]
+[Updates #47 to status:in-progress]
+[Syncs Projects v2]
+
+Proposed branch name: feat/rate-limiting-middleware. Confirm?
+
+User: yes
+
+Agent: [Creates branch feat/rate-limiting-middleware]
+[Executor: agent — proceeding autonomously]
+
+[Spawns researcher sub-agent...]
+[Spawns implementer sub-agent...]
+[Spawns reviewer, test-writer, security-auditor in parallel...]
+
+[Quality verification passes]
+[Commits and pushes]
+[Creates PR #52]
+[Transitions #47 to status:in-review]
+[Syncs Projects v2 for PR and issue]
+
+PR created: https://github.com/acme-corp/platform/pull/52
+Closes #47 on merge.
+```
+
+### Batch Mode — Multiple Independent Issues
+
+```
+User: board-pickup batch
+
+Agent: Available Work:
+  Independent (parallelizable):
+    #47 — Rate limiting middleware [executor:agent] [p1]
+    #49 — API documentation [executor:agent] [p2]
+    #51 — Fix login redirect bug [executor:agent] [p1]
+
+Which issues to batch? (list numbers, or 'all available')
+
+User: 47, 49, 51
+
+Agent: [Validates batch: all independent, no mutual dependencies]
+
+Batch composition:
+  Level 1 (parallel):
+    - #47: Rate limiting middleware
+    - #49: API documentation
+    - #51: Fix login redirect bug
+
+[Collision detection: no conflicts]
+[Marks all 3 issues status:in-progress]
+
+Proposed branch name: batch/api-improvements-and-fixes. Confirm?
+
+User: yes
+
+Agent: [Creates batch branch]
+
+[Context gathering: spawns 3 researchers in parallel...]
+[Implementation: spawns 3 implementers in parallel...]
+[Specialists: spawns reviewer, test-writer, security-auditor across all changes...]
+
+[Quality verification passes]
+[Commits: "batch: api improvements and fixes (#47, #49, #51)"]
+[Pushes]
+[Creates PR #55]
+[Transitions #47, #49, #51 to status:in-review]
+[Syncs Projects v2]
+
+PR created: https://github.com/acme-corp/platform/pull/55
+Closes #47, #49, #51 on merge.
+```
+
+### Epic Pickup — All Sub-Issues
+
+```
+User: Pick up epic #45
+
+Agent: Epic #45 — Authentication & Security Hardening
+  Sub-issues implementation order:
+    Level 1 (parallel):
+      - #46: OAuth2 PKCE authentication [ready] [no blockers]
+      - #47: Rate limiting middleware [ready] [no blockers]
+    Level 2:
+      - #48: Auth test coverage [ready] [blocked by #46]
+      - #49: API documentation [ready] [recommended after #46, #47]
+
+Which sub-issues to pick up? (all / specific numbers)
+
+User: all
+
+Agent: [Marks epic #45 and all sub-issues status:in-progress]
+
+Proposed branch name: feat/authentication-security-hardening. Confirm?
+
+User: yes
+
+Agent: [Creates branch]
+
+[Spawns epic researcher for shared context...]
+
+--- Level 1 ---
+[Spawns implementer for #46 and #47 in parallel...]
+[Both complete]
+
+--- Level 2 ---
+[Spawns implementer for #48 and #49 in parallel...]
+[Both complete]
+
+[Post-delegation verification: no conflicts]
+[Quality verification passes]
+[Commits and pushes]
+[Creates PR #56]
+[Transitions epic #45 and all sub-issues to status:in-review]
+
+PR created: https://github.com/acme-corp/platform/pull/56
+Closes #45, #46, #47, #48, #49 on merge (all sub-issues addressed).
+```
+
+## Auto-Advance Mode
+
+For sustained autonomous operation:
+
+```bash
+/hatch3r board-pickup --auto
+/hatch3r board-pickup --auto --max-batch=4 --max-issues=5 --cost-limit=20
+```
+
+**Behavior changes**:
+- Auto-selects highest priority ready issue(s)
+- Auto-batches independent issues up to `--max-batch` (default 4)
+- Auto-generates specs without validation
+- Auto-creates PRs without confirmation
+- Proceeds to next issue after PR creation
+
+**Safety guardrails** (always active):
+- Destructive operations require confirmation
+- Breaking changes require confirmation
+- Stops if cost exceeds threshold (default $10/issue)
+- Stops after 3 consecutive failures
+- Maximum 10 issues per session (configurable)
+
+## Integration with GitHub Agentic Workflows
+
+hatch3r's board commands operate as the **implementation orchestration layer** above GitHub Agentic Workflows:
+
+- **board-init** sets up the project management structure
+- **board-fill** creates the work items
+- **board-pickup** orchestrates the implementation → review → merge pipeline that goes beyond generic agentic workflows
+
+Use agentic workflows for continuous background automation, use hatch3r board commands for structured delivery orchestration.
+
+## Error Handling
+
+- **list_issues/search_issues failure**: Retries once, asks user for issue number
+- **issue_write failure**: Warns and continues (labels not blocking)
+- **Quality verification failure**: Fixes before creating PR
+- **create_pull_request failure**: Presents error and manual instructions
+
+## Guardrails
+
+- Never skips collision check
+- Never skips ASK checkpoints (except in auto mode)
+- Always works on dedicated branch (never commits to default branch)
+- Stays within scope (notes related work but doesn't implement it)
+- One PR per pickup session (single issue, epic, or batch)
+- One sub-agent per issue (never implements multiple issues inline)
+- Maximizes parallelism (launches all independent sub-agents concurrently)
+- Respects dependency and implementation order
+- Prefers `status:ready` issues
+- Board Overview is auto-maintained and excluded from analysis
+- Always creates a PR (unless explicitly abandoned or audit epic)

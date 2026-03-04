@@ -1,0 +1,313 @@
+---
+title: Project Workflow
+description: Full project lifecycle from initialization to release using hatch3r
+---
+
+hatch3r provides a complete project workflow from initialization through release. This guide walks through the typical development lifecycle.
+
+## Overview
+
+The hatch3r workflow follows a structured path:
+
+1. **Initialize** — Set up hatch3r in your repository
+2. **Board Setup** — Create or connect a GitHub Projects V2 board
+3. **Define Work** — Specify what needs to be built
+4. **Fill Board** — Generate GitHub issues with dependency analysis
+5. **Pick Up Work** — Auto-select and implement the next best issue
+6. **Review** — Automated PR review and quality checks
+7. **Release** — Cut versioned releases with changelogs
+
+## 1. Initialize
+
+Install hatch3r in your repository:
+
+```bash
+npx hatch3r init
+```
+
+The interactive setup:
+- Detects your repository type
+- Asks which coding tools you use (Cursor, Copilot, Claude Code, OpenCode, etc.)
+- Generates all agents, skills, rules, commands, and MCP configuration
+- Creates `.agents/` as the canonical source
+- Generates tool-specific configs (`.cursor/`, `.github/`, `CLAUDE.md`, etc.)
+
+**Next steps after init:**
+
+<CardGroup cols={2}>
+  <Card title="Greenfield Projects" icon="seedling">
+    Run `project-spec` to generate documentation from your vision
+  </Card>
+  <Card title="Brownfield Projects" icon="building">
+    Run `codebase-map` to analyze existing code
+  </Card>
+</CardGroup>
+
+For single features, run `feature-plan`. For complex bugs, run `bug-plan`. For refactoring, run `refactor-plan`.
+
+## 2. Board Setup
+
+Create or connect a GitHub Projects V2 board:
+
+<Steps>
+  <Step title="Run board-init">
+    Execute the `board-init` command in your coding tool
+  </Step>
+  
+  <Step title="Configure the board">
+    board-init will:
+    - Create a new project or connect to an existing one via GraphQL
+    - Configure status fields (Backlog, Ready, In Progress, In Review, Done)
+    - Create the full label taxonomy (type, executor, status, priority, risk, meta)
+    - Prompt for default branch (main/master)
+    - Write project IDs to `hatch.json`
+  </Step>
+  
+  <Step title="Confirm mutations">
+    All GraphQL mutations require your confirmation before execution
+  </Step>
+</Steps>
+
+Your `hatch.json` will be updated with board configuration:
+
+```json
+{
+  "board": {
+    "owner": "my-org",
+    "repo": "my-repo",
+    "projectNumber": 1,
+    "areas": ["area:frontend", "area:backend", "area:infra"]
+  }
+}
+```
+
+## 3. Define Work
+
+Create a `todo.md` file at the project root with your planned work:
+
+```markdown
+## P0 — Critical / Launch Blockers
+
+- [ ] **User authentication**: OAuth2 PKCE flow with GitHub provider
+- [ ] **API security**: Rate limiting and request validation
+
+## P1 — Core Features
+
+- [ ] **Dashboard**: Real-time metrics display
+- [ ] **Search**: Full-text search with filters
+
+## P2 — Important
+
+- [ ] **Dark mode**: Theme toggle with system preference detection
+- [ ] **Notifications**: Email and in-app alerts
+
+## P3 — Nice to Have
+
+- [ ] **Export**: CSV and JSON export for all data tables
+```
+
+Each item should be one line. Use priority groups (P0-P3) to organize by importance.
+
+<Note>
+  Items in `todo.md` are epics by default. `board-fill` will break them into sub-issues based on scope and dependencies.
+</Note>
+
+## 4. Fill the Board
+
+Run `board-fill` to transform `todo.md` into GitHub issues:
+
+<Steps>
+  <Step title="Parse and triage">
+    board-fill parses `todo.md` and asks clarifying questions about scope, unknowns, and acceptance criteria for each item
+  </Step>
+  
+  <Step title="Classify items">
+    Each item is classified by:
+    - **Type**: feature, bug, refactor, docs, infra, QA
+    - **Priority**: P0 (critical) through P3 (nice-to-have)
+    - **Executor**: agent, human, or hybrid
+    - **Area**: frontend, backend, infra (from your `hatch.json`)
+    - **Risk**: low, medium, high
+  </Step>
+  
+  <Step title="Analyze dependencies">
+    board-fill:
+    - Groups related items into epics
+    - Identifies dependencies between issues
+    - Builds a dependency DAG (directed acyclic graph)
+    - Determines implementation order
+    - Marks parallel work lanes
+  </Step>
+  
+  <Step title="Mark issues ready">
+    Issues are marked `status:ready` when all criteria are met:
+    - All required labels present
+    - Dependencies documented
+    - Acceptance criteria specified
+    - Scope bounded (in/out of scope)
+    - No unresolved unknowns
+  </Step>
+  
+  <Step title="Create issues">
+    After confirmation, board-fill creates GitHub issues and links them to your project board
+  </Step>
+</Steps>
+
+## 5. Pick Up Work
+
+Run `board-pickup` to implement the next issue:
+
+<Steps>
+  <Step title="Auto-select issue">
+    board-pickup automatically selects the next best issue based on:
+    - Dependency order (no blockers)
+    - Priority
+    - Readiness status
+  </Step>
+  
+  <Step title="Collision detection">
+    Checks for conflicts with:
+    - In-progress work
+    - Open pull requests
+    - Work assigned to others
+  </Step>
+  
+  <Step title="Create branch">
+    Creates a feature branch following your naming convention
+  </Step>
+  
+  <Step title="Mark in-progress">
+    Updates issue status to `in-progress` and syncs with Projects V2
+  </Step>
+  
+  <Step title="Delegate implementation">
+    For simple issues, delegates to the appropriate skill (bug-fix, feature, refactor).
+    For epics, spawns parallel sub-agents for each sub-issue.
+  </Step>
+  
+  <Step title="Run quality checks">
+    Executes:
+    - Tests (unit, integration, E2E)
+    - Linting and formatting
+    - Type checking
+    - Security scans
+  </Step>
+  
+  <Step title="Create PR">
+    Creates a pull request with:
+    - Descriptive title and body
+    - References to the issue
+    - Self-review checklist
+    - Label transitions
+    - Projects V2 status sync to `in-review`
+  </Step>
+</Steps>
+
+<Info>
+  You can also specify an issue: `board-pickup #123` to work on a specific item.
+</Info>
+
+## 6. Review Cycle
+
+After a PR is created:
+
+<Steps>
+  <Step title="Automated review">
+    The `reviewer` agent checks:
+    - Correctness and logic
+    - Security and privacy invariants
+    - Performance regressions
+    - Accessibility (WCAG AA)
+    - Test coverage
+  </Step>
+  
+  <Step title="Test validation">
+    The `test-writer` agent:
+    - Verifies test coverage
+    - Identifies missing edge cases
+    - Suggests regression tests
+  </Step>
+  
+  <Step title="Security audit">
+    The `security-auditor` agent:
+    - Checks authentication/authorization
+    - Validates input sanitization
+    - Reviews data flows
+    - Tests security rules
+  </Step>
+  
+  <Step title="Address feedback">
+    Push fixes to the PR branch and re-request review
+  </Step>
+  
+  <Step title="Merge">
+    Once approved, merge the PR. The issue status automatically updates to `done`.
+  </Step>
+</Steps>
+
+## 7. Release
+
+Cut a versioned release:
+
+<Steps>
+  <Step title="Run release command">
+    Execute `release` in your coding tool
+  </Step>
+  
+  <Step title="Version bump determination">
+    The release command:
+    - Analyzes merged PRs since the last release
+    - Classifies changes (features, fixes, breaking)
+    - Determines semantic version bump (major.minor.patch)
+  </Step>
+  
+  <Step title="Generate changelog">
+    Creates a grouped changelog:
+    - **Features**: New functionality
+    - **Fixes**: Bug fixes
+    - **Refactors**: Code improvements
+    - **Docs**: Documentation updates
+    - **Infra**: Infrastructure and tooling changes
+  </Step>
+  
+  <Step title="Quality gates">
+    Runs pre-release checks:
+    - All tests pass
+    - No critical security issues
+    - Documentation is up to date
+  </Step>
+  
+  <Step title="Bump version and tag">
+    Updates `package.json` (or equivalent) and creates a git tag
+  </Step>
+  
+  <Step title="Create GitHub release">
+    Publishes a GitHub release with changelog and release notes
+  </Step>
+  
+  <Step title="Deploy (optional)">
+    Optionally verifies deployment to production
+  </Step>
+</Steps>
+
+## Continuous Workflow
+
+After your first release, the cycle continues:
+
+1. **Add new items** to `todo.md` or run planning commands (`feature-plan`, `bug-plan`, `refactor-plan`)
+2. **Run `board-fill`** to create new issues
+3. **Run `board-pickup`** to implement the next item
+4. **Review and merge** pull requests
+5. **Run `release`** when ready to ship
+
+<Tip>
+  Run `board-refresh` periodically to regenerate the board overview dashboard with current status, epic progress, and health metrics.
+</Tip>
+
+## Related Commands
+
+- **healthcheck** — Create QA audit epics for all modules
+- **security-audit** — Create security audit epics
+- **dep-audit** — Scan and upgrade dependencies
+- **context-health** — Monitor conversation context during long sessions
+- **cost-tracking** — Track token usage and costs

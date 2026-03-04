@@ -1,0 +1,145 @@
+---
+title: QA Validation
+description: E2E validation workflow producing a structured pass/fail report with evidence. Use when running QA validation, acceptance testing, verifying releases, or working on QA E2E validation issues.
+---
+
+## Overview
+
+The QA validation skill guides agents through end-to-end validation with structured test execution, evidence collection, and ship/hold recommendations.
+
+## Quick Start
+
+```
+Task Progress:
+- [ ] Step 1: Read the issue and relevant specs
+- [ ] Step 2: Produce a validation plan
+- [ ] Step 3: Execute all test cases
+- [ ] Step 4: Produce the validation report
+- [ ] Step 5: File follow-up issues
+```
+
+## Step 1: Read Inputs
+
+Parse the issue body for:
+
+- **Validation scope** - Feature/release being validated
+- **Test matrix** - Test cases to execute
+- **Environments** - Where tests will run
+- **Preconditions** - Setup requirements
+- **Pass/fail criteria** - Success thresholds
+- **Evidence requirements** - Screenshots, logs, metrics
+
+Read project documentation:
+
+- User flows documentation for expected behavior
+- Quality documentation for DoD, testing pyramid, performance budgets
+- Permissions/privacy and security threat model for security test cases
+
+Confirm the correct version is deployed to the test environment.
+
+## Step 2: Validation Plan
+
+Before executing, output:
+
+- **Scope** - Feature/release being validated
+- **Environment** - Where tests will run
+- **Version** - Build/commit being tested
+- **Preconditions verified** - Checklist
+- **Test execution order** - Sequence with dependencies
+- **Estimated duration** - Time estimate
+
+## Step 3: Execute Tests
+
+### 3a. Automated Test Execution
+
+Run the project's automated test suites (unit, integration, E2E) and record results.
+
+### 3b. Browser-Based Validation
+
+For each user-facing test case in the matrix:
+
+1. Ensure the dev server is running. If not, start it in the background.
+2. Navigate to the page or surface under test using browser automation MCP.
+3. Execute the test steps exactly as described - click, type, navigate, trigger state changes.
+4. Observe the actual result and compare to the expected result.
+5. Capture a screenshot as evidence for each test case result.
+6. Check the browser console for errors or warnings after each test case.
+7. Mark as **PASS**, **FAIL**, or **BLOCKED** (with reason and screenshot).
+
+### 3c. Non-UI Validation
+
+For non-UI test cases (API, data integrity, background jobs), use appropriate non-browser verification methods.
+
+### Important Note
+
+Do NOT fix bugs during validation. Document and file issues.
+
+## Step 4: Validation Report
+
+Produce a structured report with:
+
+### Summary
+
+- Total test cases
+- Passed count
+- Failed count
+- Blocked count
+- Overall result (PASS/FAIL)
+
+### Results Table
+
+| Test Case | Priority | Result | Evidence | Notes |
+|-----------|----------|--------|----------|-------|
+| ... | ... | ... | ... | ... |
+
+### Regression Results
+
+Checks for unaffected flows that should still work.
+
+### Security Validation
+
+Invariant checks:
+
+- Authentication/authorization working
+- No data leakage
+- Privacy requirements met
+
+### Performance Validation
+
+| Metric | Budget | Actual | Status |
+|--------|--------|--------|--------|
+| ... | ... | ... | ... |
+
+### Issues Found
+
+For each failure:
+
+- Severity (P0-P3)
+- Description
+- Issue link (if filed)
+
+### Recommendation
+
+**SHIP** or **HOLD** with reasons.
+
+## Step 5: Follow-Up
+
+- File new issues for bugs discovered during validation
+- If validation fails, state what must be fixed before re-validation
+- Post report as comment on the issue or linked PR
+
+## Related Skills
+
+- **[Feature](/skills/feature)** - Feature implementation includes acceptance testing
+- **[Bug Fix](/skills/bug-fix)** - Bug fixes should be validated
+- **[Release](/skills/release)** - Release workflow includes QA validation
+
+## Definition of Done
+
+- [ ] All test cases in the matrix executed
+- [ ] Evidence collected for every result
+- [ ] Regression checks completed
+- [ ] Security and performance validation completed
+- [ ] Validation report produced
+- [ ] Issues filed for all failures
+- [ ] Ship/hold recommendation provided

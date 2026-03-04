@@ -1,0 +1,166 @@
+---
+title: "hatch3r init"
+description: "Install a complete agent setup into your repository"
+---
+
+## Overview
+
+The `hatch3r init` command installs a complete agentic coding setup into your current repository. It creates the canonical `.agents/` directory structure, generates tool-specific configuration files, and sets up your project for agent-driven development.
+
+## Usage
+
+```bash
+hatch3r init [options]
+```
+
+## Options
+
+<ParamField path="--tools" type="string">
+  Comma-separated list of tools to configure. Valid options:
+  - `cursor` - Cursor IDE
+  - `copilot` - GitHub Copilot
+  - `claude` - Claude Code
+  - `opencode` - OpenCode
+  - `windsurf` - Windsurf
+  - `amp` - Amp
+  - `codex` - Codex CLI
+  - `gemini` - Gemini CLI
+  - `cline` - Cline / Roo Code
+  - `aider` - Aider
+  - `kiro` - Kiro
+  - `goose` - Goose
+  - `zed` - Zed
+
+  Example: `--tools cursor,copilot,claude`
+</ParamField>
+
+<ParamField path="--yes" type="boolean">
+  Skip interactive prompts and use default values. Useful for CI/CD pipelines or automated setups.
+</ParamField>
+
+## Interactive Mode
+
+When run without `--yes`, the command will prompt you to configure:
+
+1. **GitHub repository details** - Owner and repository name (auto-detected from git remote)
+2. **Default branch** - Main branch for PRs and releases (auto-detected)
+3. **Tools** - Select which AI coding tools to configure
+4. **Features** - Choose which features to enable:
+   - Agents
+   - Skills
+   - Rules
+   - Prompts
+   - Commands
+   - MCP (Model Context Protocol)
+   - Hooks
+   - GitHub agents
+5. **MCP servers** - If MCP is enabled, select which servers to configure:
+   - `github` - GitHub integration
+   - `context7` - Context management
+   - `filesystem` - File system access
+   - `playwright` - Browser automation
+   - `brave-search` - Web search
+
+## What It Does
+
+The init command performs the following steps:
+
+1. **Detects your repository** - Analyzes languages, package manager, and existing tools
+2. **Creates canonical files** - Sets up `.agents/` directory with:
+   - `agents/` - Agent definitions
+   - `commands/` - Custom commands
+   - `rules/` - Coding rules and guidelines
+   - `skills/` - Specialized skills
+   - `prompts/` - Prompt templates
+   - `github-agents/` - GitHub-specific agents
+   - `mcp/` - MCP server configurations
+   - `hooks/` - Git hooks and automation
+   - `learnings/` - Agent learnings directory
+3. **Writes manifest** - Creates `.agents/hatch.json` to track configuration
+4. **Generates tool outputs** - Creates tool-specific config files (e.g., `.cursorrules`, `CLAUDE.md`)
+5. **Sets up MCP** - If enabled, creates `.env.mcp` for API keys
+
+## Examples
+
+### Interactive Setup
+
+```bash
+hatch3r init
+```
+
+This will guide you through the setup process with interactive prompts.
+
+### Quick Setup with Defaults
+
+```bash
+hatch3r init --yes
+```
+
+Uses default tools (Cursor) and all default features.
+
+### Specific Tools
+
+```bash
+hatch3r init --tools cursor,claude,opencode --yes
+```
+
+Configures Cursor, Claude Code, and OpenCode with default features.
+
+### Multiple Tools
+
+```bash
+hatch3r init --tools cursor,copilot,windsurf
+```
+
+Configure multiple tools at once (will still prompt for other options).
+
+## Output
+
+After successful initialization, you'll see:
+
+```
+╭─ Hatch complete ──────────────────────────────╮
+│                                               │
+│  Tools:           Cursor, Claude Code         │
+│  Features:        agents, skills, rules, ...  │
+│  GitHub:          owner/repo                  │
+│  Default branch:  main                        │
+│  MCP:             github, context7, ...       │
+│  Secrets:         .env.mcp (fill in keys)    │
+│                                               │
+│  Canonical:       .agents/                    │
+│  Manifest:        .agents/hatch.json          │
+│                                               │
+╰───────────────────────────────────────────────╯
+```
+
+## Files Created
+
+- `.agents/` - Canonical directory with all agent files
+- `.agents/hatch.json` - Manifest tracking your configuration
+- `AGENTS.md` - Root-level documentation (managed)
+- Tool-specific files (e.g., `.cursorrules`, `CLAUDE.md`, `.windsurfrules`)
+- `.env.mcp` - MCP environment variables (if MCP enabled)
+
+## Overwrite Behavior
+
+If `.agents/hatch.json` already exists, the command will:
+- Prompt for confirmation before proceeding (unless `--yes` is used)
+- Preserve existing user content in managed files
+- Prepend managed blocks to files without markers
+
+## Next Steps
+
+After initialization:
+
+1. **Fill in API keys** - If using MCP, add your keys to `.env.mcp`
+2. **Source environment** - Run `source .env.mcp` and restart your editor
+3. **Customize agents** - Edit files in `.agents/` to match your workflow
+4. **Run validation** - Use `hatch3r validate` to check your setup
+5. **Start coding** - Your AI coding tools are now configured
+
+## See Also
+
+- [sync](/cli/sync) - Re-generate tool outputs from canonical state
+- [validate](/cli/validate) - Validate your `.agents/` structure
+- [status](/cli/status) - Check sync status

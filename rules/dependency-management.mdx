@@ -1,0 +1,366 @@
+---
+title: Dependency Management
+description: Lockfile discipline, security audits, bundle size impact, and dependency lifecycle management
+---
+
+# Dependency Management
+
+**Scope:** Always applied  
+**Rule ID:** `hatch3r-dependency-management`
+
+Defines rules for managing project dependencies including lockfile discipline, security audits, bundle size impact assessment, and dependency lifecycle management.
+
+## Lockfile Discipline
+
+### Always Commit the Lockfile
+
+```bash
+# ✅ Include lockfile in commits
+git add package-lock.json  # npm
+git add pnpm-lock.yaml     # pnpm
+git add yarn.lock          # yarn
+```
+
+**Why:**
+- Ensures deterministic builds across environments
+- CI, staging, and production use identical dependency versions
+- Prevents "works on my machine" issues
+
+### Never Install Without Saving
+
+```bash
+# ❌ Temporary install (not saved to package.json)
+npm install lodash --no-save
+
+# ✅ Install and save
+npm install lodash
+npm install --save-dev vitest
+```
+
+### Use Clean Install in CI
+
+CI pipelines must use clean install commands that respect lockfiles:
+
+```bash
+# ✅ CI install commands
+npm ci                 # npm
+pnpm install --frozen-lockfile  # pnpm
+yarn install --frozen-lockfile  # yarn
+```
+
+**Never use** in CI:
+```bash
+# ❌ Generates/modifies lockfile in CI
+npm install
+pnpm install
+yarn install
+```
+
+## Justification for New Dependencies
+
+Every new dependency requires justification in the PR description:
+
+### Required Information
+
+1. **What it does** — Brief description of the package's purpose
+2. **Why needed** — Problem it solves that can't be solved with existing dependencies
+3. **Alternatives considered** — Other packages evaluated and why this one was chosen
+4. **Bundle size impact** — Size of the package and its dependencies (use [bundlephobia.com](https://bundlephobia.com))
+
+### Example PR Description
+
+```markdown
+## New Dependency: date-fns
+
+**What:** Lightweight date utility library
+**Why:** Need timezone-aware date formatting. Current solution (manual calculation) is error-prone.
+**Alternatives:**
+- moment.js: Too large (289 KB vs 13 KB for date-fns)
+- Intl.DateTimeFormat: Insufficient control over format strings
+
+**Bundle impact:** +13 KB gzipped (tree-shakeable)
+```
+
+## Dependency Selection Criteria
+
+### Prefer Well-Maintained Packages
+
+Before adding a dependency, verify:
+
+| Criterion | Threshold |
+|-----------|----------|
+| Recent commits | Activity within last 6 months |
+| Active issues | Response rate > 50% within 30 days |
+| Known CVEs | Zero critical/high vulnerabilities |
+| Weekly downloads | > 10,000 (indicates active use) |
+| TypeScript support | Native types or @types package |
+| License | MIT, Apache 2.0, or compatible |
+
+### Red Flags
+
+- No commits in > 1 year
+- Unresolved critical security vulnerabilities
+- Unmaintained or deprecated notice
+- Depends on deprecated dependencies
+- Poor documentation or no examples
+
+## Pin Exact Versions for Production
+
+```json
+// package.json
+{
+  "dependencies": {
+    "express": "4.18.2",      // ✅ Exact version
+    "zod": "3.22.4"           // ✅ Exact version
+  },
+  "devDependencies": {
+    "vitest": "^1.0.4"        // ✅ Caret for dev deps OK
+  }
+}
+```
+
+**Why pin production dependencies:**
+- Prevents unexpected breaking changes in CI/production
+- Lockfile alone is insufficient if lockfile is regenerated
+- Dev dependencies can use semver ranges for easier updates
+
+## Security Scanning
+
+### Pre-Merge Security Audit
+
+Run security scanner before merging dependency changes:
+
+```bash
+npm audit --audit-level=high     # npm
+pnpm audit --audit-level=high    # pnpm
+yarn audit --level high          # yarn
+```
+
+### Severity-Based Response
+
+| Severity | Response Time | Action |
+|----------|---------------|--------|
+| **Critical** | 24 hours | Immediate patch or removal |
+| **High** | 48 hours | Patch before merge |
+| **Moderate** | 1 sprint | Schedule fix |
+| **Low** | 1 month | Review and fix if practical |
+
+### CI Security Gate
+
+```yaml
+# .github/workflows/ci.yml
+- name: Security audit
+  run: npm audit --audit-level=high
+  # Fails if high or critical vulnerabilities found
+```
+
+### Automated Dependency Updates
+
+Use Dependabot, Renovate, or equivalent:
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+```
+
+## No Duplicate Packages
+
+### Detect Duplicates
+
+```bash
+# npm
+npm ls lodash
+
+# pnpm
+pnpm why lodash
+
+# yarn
+yarn why lodash
+```
+
+If multiple versions of the same package appear, consolidate on one version.
+
+### Deduplication
+
+```bash
+# npm
+npm dedupe
+
+# pnpm (automatic)
+
+# yarn
+yarn dedupe
+```
+
+### Prevent Duplicates
+
+- Use a single utility library (lodash OR ramda, not both)
+- Use a single date library (date-fns OR dayjs, not both)
+- Use a single HTTP client (axios OR ky, not both)
+
+## Remove Unused Dependencies
+
+### Detect Unused
+
+```bash
+npx depcheck
+```
+
+### Cleanup Schedule
+
+- Run `depcheck` monthly
+- Remove unused dependencies immediately
+- Document removal in commit message
+
+### Example Cleanup Commit
+
+```
+chore: remove unused dependencies
+
+Removed:
+- lodash (replaced with native methods)
+- moment (replaced with date-fns)
+- axios (using native fetch)
+
+Bundle size reduced by 87 KB gzipped.
+```
+
+## Bundle Size Budget
+
+### Check Bundle Impact Before Adding
+
+Use [bundlephobia.com](https://bundlephobia.com) or:
+
+```bash
+npx bundle-phobia <package-name>
+```
+
+### Bundle Size Gates
+
+```javascript
+// .size-limit.js
+module.exports = [
+  {
+    path: "dist/bundle.js",
+    limit: "500 KB",  // Fail if bundle exceeds 500 KB gzipped
+  },
+];
+```
+
+```yaml
+# CI integration
+- name: Check bundle size
+  run: npx size-limit
+```
+
+### Reject Dependencies That Exceed Budget
+
+If adding a dependency would exceed the bundle size budget:
+
+1. Find a lighter alternative
+2. Implement the needed functionality in-house
+3. Request budget increase with tech lead approval (must include justification)
+
+## Security Patches: Priority Levels
+
+### CVE Severity Mapping
+
+| CVE Score | Severity | Response SLA |
+|-----------|----------|-------------|
+| 9.0–10.0 | Critical | **24 hours** |
+| 7.0–8.9 | High | **48 hours** |
+| 4.0–6.9 | Moderate | 1 sprint |
+| 0.1–3.9 | Low | 1 month |
+
+### Patching Process
+
+1. **Assess impact:** Does the vulnerability affect our usage of the package?
+2. **Update dependency:** Use `npm update`, `npm audit fix`, or manual version bump
+3. **Test thoroughly:** Run full test suite + manual verification
+4. **Deploy immediately:** Critical/high patches bypass normal release cycle
+5. **Document:** Note CVE ID and patch version in commit message
+
+### Example Security Patch Commit
+
+```
+fix: patch CVE-2024-12345 in express
+
+Updated express from 4.18.2 to 4.18.3 to address
+prototype pollution vulnerability (CVE-2024-12345).
+
+Severity: High (CVSS 8.1)
+Impact: Potential RCE via malicious query parameters
+Mitigation: Updated to patched version 4.18.3
+
+Tested: Full test suite passing + manual verification
+```
+
+## Lockfile Review in PRs
+
+Review lockfile changes with the same scrutiny as code changes:
+
+### Checklist for Lockfile Changes
+
+- [ ] Lockfile diff matches `package.json` changes
+- [ ] No unexpected version bumps (especially major versions)
+- [ ] No new transitive dependencies with known vulnerabilities
+- [ ] New dependencies justified in PR description
+- [ ] Bundle size impact documented and within budget
+
+### GitHub PR Comment Example
+
+```markdown
+## Dependency Changes
+
+**Added:**
+- `zod@3.22.4` (+21 KB gzipped) — Runtime schema validation
+
+**Updated:**
+- `typescript@5.2.2` → `5.3.3` (devDependency)
+
+**Removed:**
+- `joi` (-45 KB gzipped) — Replaced with zod
+
+**Net bundle impact:** -24 KB gzipped ✅
+**Security scan:** No vulnerabilities ✅
+```
+
+## Enforcement
+
+**Pre-commit hooks:**
+```bash
+# Verify lockfile is committed
+git diff --cached --name-only | grep -q "package-lock.json"
+```
+
+**CI gates:**
+- Security audit must pass (no high/critical vulnerabilities)
+- Bundle size must be within budget
+- Lockfile must match `package.json`
+
+**Code review checklist:**
+- [ ] Lockfile committed
+- [ ] New dependencies justified in PR description
+- [ ] Security scan clean
+- [ ] Bundle size impact documented and acceptable
+- [ ] No duplicate packages serving same purpose
+
+## Related Rules
+
+- [Code Standards](/rules/code-standards) — Import conventions
+- [Security Patterns](/rules/security-patterns) — Supply chain security

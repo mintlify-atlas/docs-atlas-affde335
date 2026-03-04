@@ -1,0 +1,244 @@
+---
+title: Learn
+description: Capture learnings from development sessions into reusable knowledge files for future consultation
+---
+
+## Overview
+
+Capture learnings from completed development sessions. Can be invoked manually after finishing work, automatically by board-pickup after PR merge, or with a specific issue number for targeted reflection.
+
+## When to Use
+
+- You just completed a task and want to capture insights
+- You discovered a useful pattern or pitfall
+- You made an architectural decision with important rationale
+- You learned something about a tool or library
+- You want to improve future workflows
+
+## How It Works
+
+<Steps>
+  <Step title="Gather Learning Context">
+    - If invoked with an issue number: reads the issue, its PR, and changes via `gh` CLI
+    - If invoked standalone: asks what you just completed
+    - If invoked from board-pickup: uses the issue/PR context already available
+    - Scans recent git history for context
+  </Step>
+
+  <Step title="Extract Learnings">
+    Identifies learnings in these categories:
+    - **Pattern Discovered**: A reusable approach that worked well
+    - **Pitfall Encountered**: Something that caused problems or wasted time
+    - **Decision Made**: An architectural or design decision with rationale
+    - **Tool/Library Insight**: Something learned about a tool or library
+    - **Process Improvement**: A workflow improvement suggestion
+    
+    For each learning, captures:
+    - What happened (context)
+    - What was learned
+    - When this applies in the future (trigger conditions)
+  </Step>
+
+  <Step title="Write Learning Files">
+    Creates a file in `/.agents/learnings/` for each confirmed learning.
+    
+    **Filename**: `{YYYY-MM-DD}_{short-slug}.md`
+    
+    Validates quality:
+    - Title under 80 characters
+    - At least one tag matching project vocabulary
+    - Specific trigger conditions in "Applies When" section
+    - Evidence present (if not, sets `confidence: hypothesis`)
+    - No duplicate of existing active learning
+  </Step>
+
+  <Step title="Summary">
+    Presents all saved learnings with file paths and reminds that they will be auto-consulted during future board-pickup and board-fill runs.
+  </Step>
+</Steps>
+
+## Learning File Format
+
+```markdown
+---
+id: {short-slug}
+date: {YYYY-MM-DD}
+source-issue: #{issue-number}  # or "manual" if standalone
+category: pattern | pitfall | decision | tool-insight | process
+tags: [{area-labels}, {tech-stack-tags}]
+area: {module/subsystem affected}
+confidence: proven | experimental | hypothesis
+expires: {YYYY-MM-DD}          # optional
+deprecated: false               # set true to deprecate
+superseded_by: {learning-id}    # reference when deprecated
+---
+## Context
+
+{What was being done when this learning occurred}
+
+## Learning
+
+{The actual insight -- what was learned}
+
+## Applies When
+
+{Future trigger conditions -- when should this learning be consulted}
+
+## Evidence
+
+{Links to relevant code, PRs, issues, or files}
+```
+
+## Learning Categories
+
+<AccordionGroup>
+  <Accordion title="Pattern Discovered">
+    A reusable approach that worked well. Examples:
+    - A code pattern that improved maintainability
+    - An effective testing strategy
+    - A performance optimization technique
+  </Accordion>
+  
+  <Accordion title="Pitfall Encountered">
+    Something that caused problems or wasted time. Examples:
+    - A common mistake to avoid
+    - An API misuse that led to bugs
+    - A configuration error that broke things
+  </Accordion>
+  
+  <Accordion title="Decision Made">
+    An architectural or design decision with rationale. Examples:
+    - Choosing one library over another
+    - Deciding on a data structure
+    - Selecting an API design approach
+  </Accordion>
+  
+  <Accordion title="Tool/Library Insight">
+    Something learned about a tool or library. Examples:
+    - An undocumented feature
+    - A gotcha or edge case
+    - A best practice for using the tool
+  </Accordion>
+  
+  <Accordion title="Process Improvement">
+    A workflow improvement suggestion. Examples:
+    - A better way to review code
+    - A more efficient testing workflow
+    - An improved deployment process
+  </Accordion>
+</AccordionGroup>
+
+## Confidence Levels
+
+- **`proven`** — validated across multiple implementations
+- **`experimental`** — worked once, needs more validation
+- **`hypothesis`** — untested assumption, use with caution
+
+**Auto-promotion**: Learnings referenced in 3+ implementations are auto-promoted to `proven`.
+
+## Learning Lifecycle
+
+### Expiry & Deprecation
+- Learnings have an optional `expires` field (ISO date)
+- Expired learnings are flagged during `hatch3r status`
+- Learnings can be marked `deprecated: true` with a `superseded_by` reference
+- During `hatch3r sync`, expired/deprecated learnings are moved to `archived/` subdirectory (not deleted)
+- Quarterly review prompted when > 50 active learnings exist
+
+### Archival
+
+Archived learnings are moved to `/.agents/learnings/archived/` with an archival notice:
+
+```markdown
+> **Archived on {date}**: {reason — expired | deprecated | superseded by {id}}
+```
+
+## Search & Discovery
+
+### Tag System
+Learnings are tagged with categories: `performance`, `security`, `ux`, `architecture`, `testing`, `deployment`, `debugging`, `patterns`
+
+Agents search learnings by tag when starting relevant work (e.g., performance audit consults `performance`-tagged learnings).
+
+### Search Commands
+
+- `hatch3r learn search {query}` — full-text search across learning titles and content
+- `hatch3r learn list --tag={tag}` — filter by tag
+- `hatch3r learn list --status={active|deprecated|expired}` — filter by lifecycle status
+- `hatch3r learn list --recent` — show learnings added in last 30 days
+
+### Search Output Format
+
+```
+Learnings matching "{query}":
+  [proven] {title} ({date}, tags: {tags})
+    /.agents/learnings/{filename}.md
+    Applies when: {trigger summary}
+```
+
+### Agent Auto-Consultation
+
+During `board-pickup` and `board-fill`, agents automatically consult learnings by:
+1. Matching area labels from the issue to learning tags
+2. Filtering to `active` status only (not expired/deprecated)
+3. Sorting by confidence (`proven` first) then by date (newest first)
+4. Presenting top 5 relevant learnings in the implementation context
+
+## Learning Quality
+
+### Required Fields
+Every learning must include:
+- `title` — concise summary (< 80 chars)
+- `context` — when this learning applies
+- `insight` — what was learned
+- `evidence` — how it was validated (PR link, test result, metric)
+- `tags` — at least one category tag
+
+### Validation
+- Learnings without `evidence` are automatically tagged `hypothesis`
+- Learnings referenced in 3+ implementations are auto-promoted to `proven`
+- Learnings contradicted by newer evidence are flagged for review
+
+### Quality Checks
+
+When writing learning files, validates:
+1. Title is under 80 characters
+2. At least one tag is present and matches project vocabulary
+3. "Applies When" section has specific trigger conditions (not vague)
+4. Evidence is present — if not, sets `confidence: hypothesis` and warns
+5. Content does not duplicate an existing active learning
+
+## Integration with Workflow
+
+### Automatic Capture
+- After `hatch3r-board-pickup` completes and PR is merged
+- After `hatch3r-workflow` Phase 4 (Review) completes
+
+### Manual Capture
+- Invoke `hatch3r learn` after completing work
+- Invoke `hatch3r learn #{issue-number}` for targeted reflection
+
+### Future Consultation
+- Learnings are auto-consulted during `board-pickup` and `board-fill`
+- Researcher sub-agent includes relevant learnings in context gathering
+- Implementer sub-agent receives applicable learnings in prompt
+
+## Error Handling
+
+- `/.agents/learnings/` doesn't exist: Creates it silently
+- `/.agents/learnings/archived/` doesn't exist: Creates it when first archival occurs
+- Duplicate learning detected: Warns and asks whether to merge or create separate
+- No learnings identified: Asks user directly what they learned; if still nothing, skips silently
+- Learning exceeds quality thresholds: Warns with specific violations and suggests fixes
+- Search returns no results: Suggests broader search terms or lists all available tags
+
+## Guardrails
+
+- **Never overwrites existing learning files**
+- **Never deletes learnings** — uses archival (move to `archived/`) instead
+- **Learnings must be specific and actionable** — rejects generic advice like "write better tests"
+- **Always includes trigger conditions** in the "Applies When" section
+- **Tags must match project vocabulary** — uses area labels from `/.agents/hatch.json`
+- **Max ~20 lines per learning** file body (excluding frontmatter)
+- **Learnings without evidence must be `hypothesis`** — does not allow `proven` or `experimental` without evidence
+- **Expired learnings are archived, not deleted** — preserves institutional knowledge

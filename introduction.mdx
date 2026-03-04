@@ -1,0 +1,264 @@
+---
+title: Introduction
+description: Production-ready spec-driven development setup for AI coding agents in any repo with one command
+mode: custom
+---
+
+<div className="relative overflow-hidden dark:bg-[#0f1117] bg-white">
+  {/* Hero Section */}
+  <div className="relative py-20 px-6 dark:bg-gradient-to-b dark:from-[#1a1d27] dark:to-[#0f1117] bg-gradient-to-b from-gray-50 to-white">
+    <div className="max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        {/* Left column - Text content */}
+        <div className="lg:col-span-7">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold dark:text-white text-gray-900 mb-6">
+            Crack the egg.<br />Hatch better agents.
+          </h1>
+          <p className="text-lg sm:text-xl dark:text-gray-300 text-gray-600 mb-8 max-w-2xl">
+            One command installs a battle-tested agentic coding setup into any repository — 11 agents, 22 skills, 18 rules, 25 commands, and MCP integrations for all major AI coding tools.
+          </p>
+          
+          <div className="flex flex-wrap gap-4 mb-8">
+            <a 
+              href="/quickstart"
+              className="inline-flex items-center px-6 py-3 rounded-full font-semibold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: '#cb0404' }}
+            >
+              Get Started
+              <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+            <a 
+              href="/concepts/overview"
+              className="inline-flex items-center px-6 py-3 rounded-full font-semibold dark:text-white text-gray-900 dark:bg-white/10 bg-gray-100 dark:border-white/20 border-gray-300 border transition-all dark:hover:bg-white/20 hover:bg-gray-200"
+            >
+              Core Concepts
+            </a>
+          </div>
+
+          {/* Key stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-4 dark:border-[#27272a] border-gray-200 border">
+              <div className="text-2xl font-bold" style={{ color: '#cb0404' }}>11</div>
+              <div className="text-sm dark:text-gray-400 text-gray-600">Agents</div>
+            </div>
+            <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-4 dark:border-[#27272a] border-gray-200 border">
+              <div className="text-2xl font-bold" style={{ color: '#cb0404' }}>22</div>
+              <div className="text-sm dark:text-gray-400 text-gray-600">Skills</div>
+            </div>
+            <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-4 dark:border-[#27272a] border-gray-200 border">
+              <div className="text-2xl font-bold" style={{ color: '#cb0404' }}>18</div>
+              <div className="text-sm dark:text-gray-400 text-gray-600">Rules</div>
+            </div>
+            <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-4 dark:border-[#27272a] border-gray-200 border">
+              <div className="text-2xl font-bold" style={{ color: '#cb0404' }}>25</div>
+              <div className="text-sm dark:text-gray-400 text-gray-600">Commands</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column - Logo/Visual */}
+        <div className="lg:col-span-5 flex justify-center">
+          <img 
+            src="https://media.brand.dev/7316e6d5-0198-4785-94cd-cb9b972e0c98.png" 
+            alt="hatch3r logo"
+            className="w-64 h-64 object-contain"
+            noZoom
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* Quick Start Section */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Quick start</h2>
+  <p className="text-lg dark:text-gray-400 text-gray-600 mb-8">Get up and running in seconds</p>
+
+  <Steps>
+    <Step title="Install hatch3r">
+      Run the init command in your repository:
+      
+      ```bash
+      npx hatch3r init
+      ```
+      
+      hatch3r will detect your repository and ask which AI coding tools you use.
+    </Step>
+
+    <Step title="Select your tools">
+      Choose from supported tools:
+      - **Cursor** — `.mdc` rules, agents, skills, commands, MCP config
+      - **GitHub Copilot** — instructions, prompts, GitHub agents
+      - **Claude Code** — `CLAUDE.md`, skills, `.mcp.json`
+      - **OpenCode** — `AGENTS.md`, `opencode.json`
+      - **Windsurf** — `.windsurfrules`
+      - **Amp, Codex CLI, Gemini CLI, Cline** — Full support
+      
+      <Info>You can select multiple tools — hatch3r generates native configuration for each</Info>
+    </Step>
+
+    <Step title="Start using agents">
+      Your repository now includes:
+      - 11 specialized agents (reviewer, test-writer, security-auditor, implementer, etc.)
+      - 22 skills (feature, bug-fix, refactor, release, incident-response, etc.)
+      - 18 rules (code standards, API design, testing, security patterns, etc.)
+      - 25 commands (board management, planning, quality audits, workflows)
+      - MCP integrations for GitHub, Context7, Filesystem, Playwright, Brave Search
+      
+      Run any command in your AI coding tool — for example: `board-init`, `feature-plan`, or `healthcheck`
+    </Step>
+  </Steps>
+</div>
+
+{/* Features Grid */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Key features</h2>
+  <p className="text-lg dark:text-gray-400 text-gray-600 mb-8">Everything you need for production-ready AI-assisted development</p>
+
+  <CardGroup cols={2}>
+    <Card title="11 Specialized Agents" icon="robot" href="/agents/overview">
+      Code reviewer, test writer, security auditor, implementer, researcher, and more — each with a specific role and expertise.
+    </Card>
+    <Card title="22 Skills" icon="wand-magic-sparkles" href="/skills/overview">
+      Feature development, bug fixing, refactoring, releases, incident response, architecture review, and more.
+    </Card>
+    <Card title="18 Rules" icon="book" href="/rules/overview">
+      Code standards, API design, testing patterns, security guidelines, observability, and workflow conventions.
+    </Card>
+    <Card title="25 Commands" icon="terminal" href="/commands/board-init">
+      Board management, planning workflows, quality audits, security scans, release automation, and utilities.
+    </Card>
+    <Card title="Multi-Tool Support" icon="screwdriver-wrench" href="/supported-tools">
+      Native adapters for Cursor, GitHub Copilot, Claude Code, OpenCode, Windsurf, Amp, Codex, Gemini, and Cline.
+    </Card>
+    <Card title="MCP Integrations" icon="plug" href="/concepts/mcp">
+      Built-in MCP servers for GitHub, Context7, Filesystem, Playwright, and Brave Search with automatic configuration.
+    </Card>
+    <Card title="Sub-Agentic Architecture" icon="diagram-project" href="/concepts/sub-agentic-architecture">
+      Parallel delegation and dependency-aware orchestration for complex multi-step workflows.
+    </Card>
+    <Card title="Board Management" icon="trello" href="/concepts/board-management">
+      GitHub Projects V2 integration with automated issue creation, status tracking, and dependency analysis.
+    </Card>
+  </CardGroup>
+</div>
+
+{/* How It Works */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">How it works</h2>
+  <p className="text-lg dark:text-gray-400 text-gray-600 mb-8">One canonical source, multiple tool outputs</p>
+
+  <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-2xl p-8 dark:border-[#27272a] border-gray-200 border">
+    <pre className="text-sm dark:text-gray-300 text-gray-700 overflow-x-auto">
+{`/.agents/              ← Canonical source (tool-agnostic)
+  ├── agents/
+  ├── skills/
+  ├── rules/
+  ├── commands/
+  ├── mcp/
+  ├── AGENTS.md
+  └── hatch.json       ← Manifest
+
+.cursor/               ← Generated (Cursor adapter)
+.github/               ← Generated (Copilot adapter)
+CLAUDE.md              ← Generated (Claude adapter)
+.windsurfrules         ← Generated (Windsurf adapter)
+AGENTS.md              ← Generated (OpenCode, Amp, Codex)
+GEMINI.md              ← Generated (Gemini adapter)
+.clinerules            ← Generated (Cline adapter)`}
+    </pre>
+  </div>
+
+  <p className="mt-6 dark:text-gray-400 text-gray-600">
+    hatch3r maintains one source of truth in <code className="dark:bg-[#242838] bg-gray-200 px-2 py-1 rounded">.agents/</code> and generates native configuration for each tool you use. Run <code className="dark:bg-[#242838] bg-gray-200 px-2 py-1 rounded">hatch3r sync</code> to regenerate after changes.
+  </p>
+</div>
+
+{/* Workflow Section */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Complete workflow</h2>
+  <p className="text-lg dark:text-gray-400 text-gray-600 mb-8">From initialization to release</p>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a 
+      href="/guides/greenfield-projects" 
+      className="group block rounded-2xl dark:bg-[#1a1d27] bg-gray-50 dark:border-[#27272a] border-gray-200 border p-6 dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+    >
+      <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-3">New Projects (Greenfield)</h3>
+      <p className="dark:text-gray-400 text-gray-600 mb-4">
+        Start from scratch with project-spec to generate documentation, then roadmap to create a phased plan.
+      </p>
+      <div className="flex items-center dark:text-[#cb0404] text-[#cb0404] font-medium">
+        Learn more
+        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </a>
+
+    <a 
+      href="/guides/brownfield-projects" 
+      className="group block rounded-2xl dark:bg-[#1a1d27] bg-gray-50 dark:border-[#27272a] border-gray-200 border p-6 dark:hover:border-[#cb0404] hover:border-[#cb0404] transition-colors no-underline"
+    >
+      <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-3">Existing Projects (Brownfield)</h3>
+      <p className="dark:text-gray-400 text-gray-600 mb-4">
+        Add hatch3r to existing codebases with codebase-map to analyze what's there and plan improvements.
+      </p>
+      <div className="flex items-center dark:text-[#cb0404] text-[#cb0404] font-medium">
+        Learn more
+        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </a>
+  </div>
+</div>
+
+{/* Resources Section */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Resources</h2>
+  <p className="text-lg dark:text-gray-400 text-gray-600 mb-8">Guides and references</p>
+
+  <CardGroup cols={3}>
+    <Card title="CLI Reference" icon="terminal" href="/cli/init">
+      Complete reference for all CLI commands: init, sync, update, validate, status
+    </Card>
+    <Card title="Agent Commands" icon="robot" href="/commands/board-init">
+      25+ commands for board management, planning, quality audits, and workflows
+    </Card>
+    <Card title="Customization" icon="wrench" href="/guides/customization">
+      Customize agents, skills, rules, and commands for your project
+    </Card>
+    <Card title="MCP Setup" icon="plug" href="/guides/mcp-setup">
+      Configure MCP servers and manage API keys securely
+    </Card>
+    <Card title="Model Selection" icon="brain" href="/guides/model-selection">
+      Configure AI models per agent for optimal performance
+    </Card>
+    <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+      Common issues and solutions
+    </Card>
+  </CardGroup>
+</div>
+
+{/* Closing CTA */}
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: '#cb0404' }}>
+    <h2 className="text-3xl font-bold text-white mb-4">Ready to hatch better agents?</h2>
+    <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+      Install hatch3r in your repository and get a production-ready agentic coding setup in seconds.
+    </p>
+    <a 
+      href="/quickstart"
+      className="inline-flex items-center px-8 py-4 rounded-full font-semibold text-[#cb0404] bg-white hover:bg-gray-100 transition-colors"
+    >
+      Get Started Now
+      <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+      </svg>
+    </a>
+  </div>
+</div>

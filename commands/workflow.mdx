@@ -1,0 +1,211 @@
+---
+title: Development Workflow
+description: Guided development lifecycle with 4 phases (Analyze, Plan, Implement, Review) and scale-adaptive Quick Mode
+---
+
+## Overview
+
+Optional guided development lifecycle command that walks through structured phases — **Analyze**, **Plan**, **Implement**, **Review** — using hatch3r's existing agents and skills. Includes a **Quick Mode** that collapses phases for small tasks. Scale-adaptive: detects task complexity and recommends the appropriate mode. Works standalone or when invoked from `hatch3r-board-pickup`.
+
+## When to Use
+
+- You want structured guidance through implementation
+- You need help breaking down a complex task
+- You want automatic context gathering and planning
+- You need quality assurance via specialist sub-agents
+- You're implementing a feature, fixing a bug, or refactoring code
+
+## Mode Selection (Scale-Adaptive)
+
+The workflow automatically assesses task complexity and recommends either **Full Mode** or **Quick Mode**.
+
+### Full Mode — for complex tasks
+
+**Complexity Signals:**
+- Multiple files or modules affected
+- Architectural decisions needed
+- New dependencies or integrations
+- Security-sensitive changes
+- Cross-cutting concerns (database schema, API contracts, event schemas)
+- Estimated effort > 1 day
+- Task is an epic or has sub-issues
+
+### Quick Mode — for simple tasks
+
+**Complexity Signals:**
+- Single file change
+- Bug fix with clear reproduction
+- Small refactor (rename, extract function)
+- Documentation update
+- Test addition for existing code
+- Estimated effort < 2 hours
+
+## Full Mode Workflow
+
+<Steps>
+  <Step title="Phase 1: Analyze">
+    **Goal**: Fully understand the task, its context, and constraints before writing any code.
+    
+    - Parses the task (GitHub issue or user description)
+    - Loads relevant context from `docs/specs/`, ADRs, existing code
+    - Uses **Context7 MCP** for external library documentation
+    - Uses **web research** for best practices and security advisories
+    - Consults learnings from `/.agents/learnings/`
+    - Presents analysis with scope, affected files, constraints, risks, and open questions
+  </Step>
+
+  <Step title="Phase 2: Plan">
+    **Goal**: Design the solution before implementing.
+    
+    - Drafts implementation plan listing all files to create/modify
+    - Describes specific changes for each file
+    - Identifies test requirements (unit, integration, e2e)
+    - Notes dependency changes needed
+    - Selects the appropriate hatch3r skill (bug-fix, feature-implementation, refactor, etc.)
+    - Identifies supporting agents needed (test-writer, docs-writer, reviewer, security-auditor)
+    - Assesses risks and mitigations
+  </Step>
+
+  <Step title="Phase 3: Implement">
+    **Goal**: Execute the plan using selected hatch3r skill and sub-agents.
+    
+    **Context Gathering (Researcher Sub-Agent)**:
+    - Spawns `hatch3r-researcher` sub-agent via Task tool
+    - Selects research modes by task type (bug → symptom-trace/root-cause, feature → codebase-impact/feature-design)
+    - Uses depth `quick` for low-risk, `standard` for medium-risk, `deep` for high-risk
+    
+    **Core Implementation (Implementer Sub-Agent)**:
+    - Spawns `hatch3r-implementer` sub-agent via Task tool
+    - Includes the matching hatch3r skill file and researcher output in the prompt
+    - For tasks spanning multiple independent parts, spawns multiple implementers in parallel
+    - Coordinates changes across files to avoid conflicts
+    
+    **Quality Checks**:
+    - Runs `npm run lint && npm run typecheck && npm run test`
+    - Fixes any issues before proceeding to Phase 4
+  </Step>
+
+  <Step title="Phase 4: Review (Sub-Agent Quality Pipeline)">
+    **Goal**: Verify quality and completeness via specialist sub-agents.
+    
+    **Always spawns (mandatory for every code change)**:
+    - **`hatch3r-reviewer`** — code review of all changes
+    - **`hatch3r-test-writer`** — tests for all code changes
+    - **`hatch3r-security-auditor`** — security review of all code changes
+    
+    **Always evaluates (spawn when applicable)**:
+    - **`hatch3r-docs-writer`** — when changes affect public APIs, architectural patterns, user-facing behavior
+    
+    **Conditional specialists (spawn when triggered)**:
+    - **`hatch3r-lint-fixer`** — when lint or type errors are present
+    - **`hatch3r-a11y-auditor`** — when UI or accessibility changes are made
+    - **`hatch3r-perf-profiler`** — when performance-sensitive changes are made
+    
+    Verifies against acceptance criteria and captures learnings to `/.agents/learnings/`.
+  </Step>
+</Steps>
+
+## Quick Mode Workflow
+
+Collapses the 4 phases into a streamlined flow for small, well-defined tasks. Sub-agent delegation is still mandatory — Quick Mode uses lighter prompts, not fewer sub-agents.
+
+<Steps>
+  <Step title="Quick Step 1: Rapid Analysis + Plan">
+    - Spawns `hatch3r-researcher` with depth `quick` for brief context gathering
+    - Quick plan: lists changes, identifies the appropriate hatch3r skill
+    - Skips ADR/spec review unless the task touches architecture
+  </Step>
+
+  <Step title="Quick Step 2: Implement">
+    - Spawns `hatch3r-implementer` sub-agent (never implements inline)
+    - Runs quality checks (lint, typecheck, test)
+    - Fixes any issues before proceeding
+  </Step>
+
+  <Step title="Quick Step 3: Quick Review">
+    Spawns specialist sub-agents in parallel — same mandatory pipeline as Full Mode:
+    - `hatch3r-reviewer` — ALWAYS
+    - `hatch3r-test-writer` — ALWAYS for code changes
+    - `hatch3r-security-auditor` — ALWAYS for code changes
+    - `hatch3r-docs-writer` — when documentation impact exists
+    
+    Verifies acceptance criteria and confirms quality checks pass.
+  </Step>
+</Steps>
+
+## Auto-Advance Mode
+
+When invoked with `--auto` or `--unattended`, the workflow operates with reduced human checkpoints for sustained autonomous operation.
+
+### Behavior Changes
+
+| Checkpoint | Normal Mode | Auto Mode |
+|-----------|-------------|--------|
+| Mode selection | ASK user to confirm | Auto-select based on complexity signals |
+| Analysis review | ASK user to proceed | Auto-proceed if no open questions |
+| Plan review | ASK user to approve | Auto-proceed with plan |
+| Implementation review | ASK user before Review | Auto-proceed if quality checks pass |
+| Review finalization | ASK user to finalize | Auto-finalize if all AC met |
+
+### Safety Guardrails (Always Active)
+
+These checkpoints are **NEVER skipped**, even in auto mode:
+- Destructive operations (database migrations, file deletions, security rule changes)
+- Breaking changes (API contract changes, public interface modifications)
+- Open questions (if Phase 1 analysis surfaces unresolvable ambiguity)
+- Quality gate failures (if lint/typecheck/test fail after 2 fix attempts)
+- Cost thresholds (stop if estimated token cost exceeds configured limit, default: $10 per task)
+
+### Activation
+
+```bash
+/hatch3r workflow --auto
+/hatch3r workflow --auto --mode=full
+/hatch3r workflow --auto --mode=quick
+```
+
+## Integration with Board Workflow
+
+### Invoked from `hatch3r-board-pickup`
+- Phase 1 uses the issue context already gathered by board-pickup — skips re-fetching
+- Phase 3 skips PR creation — board-pickup handles it in its own Steps 7a–8
+- Phase 4 results feed into board-pickup's quality verification (Step 7)
+
+### Invoked Standalone
+- All phases run independently with full context loading
+- User decides whether to create a PR at the end of Phase 4
+
+## Skill Selection
+
+The workflow maps task types to appropriate hatch3r skills:
+
+| Task Type | Skill |
+|-----------|-------|
+| Bug report | hatch3r-bug-fix |
+| Feature request | hatch3r-feature-implementation |
+| Code refactor | hatch3r-code-refactor |
+| Logical refactor | hatch3r-logical-refactor |
+| Visual refactor | hatch3r-visual-refactor |
+| QA validation | hatch3r-qa-validation |
+
+## Error Handling
+
+- **Quality check failure in Phase 3**: Loops back and fixes before proceeding to Phase 4
+- **Acceptance criteria not met in Phase 4**: Loops back to Phase 3 with specific items to address
+- **Sub-agent failure**: Retries once, then falls back to direct implementation
+- **Context degradation** (>25 turns): Suggests starting a fresh chat with progress summary
+- **Mode switch**: User can switch from Quick to Full (or vice versa) at any ASK checkpoint — state carries forward
+
+## Guardrails
+
+- Never skips ASK checkpoints (except in Auto Mode with safety guardrails)
+- Never skips Phase 4 (Review) in Full Mode
+- Quick Mode is opt-in — user must confirm mode selection
+- Always runs quality checks before declaring implementation complete
+- Stays within task scope — notes related work but does not implement it
+- Recommends Full Mode if task grows beyond Quick Mode complexity
+- All phases produce structured output that feeds into other hatch3r commands
+
+## Global Rule Overrides
+
+**Git commands are fully permitted** during Phase 3 (Implement), including `git add`, `git commit`, and `git push`. This override applies to delegated skills and sub-agents invoked during implementation.
