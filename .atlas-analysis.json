@@ -1,0 +1,286 @@
+{
+  "projectType": "framework",
+  "projectName": "hatch3r",
+  "projectDescription": "Production-ready spec-driven development setup for AI coding agents in any repo with one command.",
+  "theme": "aspen",
+  "primaryColor": "#cb0404",
+  "lightColor": "#f3d2d2",
+  "darkColor": "#e37b84",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation",
+              "supported-tools"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/agents",
+              "concepts/skills",
+              "concepts/rules",
+              "concepts/commands",
+              "concepts/mcp",
+              "concepts/adapters",
+              "concepts/board-management",
+              "concepts/sub-agentic-architecture"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/workflow",
+              "guides/greenfield-projects",
+              "guides/brownfield-projects",
+              "guides/mcp-setup",
+              "guides/model-selection",
+              "guides/customization",
+              "guides/documentation-structure",
+              "guides/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/init",
+              "cli/sync",
+              "cli/update",
+              "cli/validate",
+              "cli/status",
+              "cli/add"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agent Commands",
+        "groups": [
+          {
+            "group": "Board Management",
+            "pages": [
+              "commands/board-init",
+              "commands/board-fill",
+              "commands/board-pickup",
+              "commands/board-refresh"
+            ]
+          },
+          {
+            "group": "Planning",
+            "pages": [
+              "commands/project-spec",
+              "commands/codebase-map",
+              "commands/roadmap",
+              "commands/feature-plan",
+              "commands/bug-plan",
+              "commands/refactor-plan"
+            ]
+          },
+          {
+            "group": "Quality & Security",
+            "pages": [
+              "commands/healthcheck",
+              "commands/security-audit",
+              "commands/dep-audit"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "commands/workflow",
+              "commands/release",
+              "commands/hooks",
+              "commands/learn"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "commands/context-health",
+              "commands/cost-tracking",
+              "commands/recipe",
+              "commands/agent-customize",
+              "commands/command-customize",
+              "commands/skill-customize",
+              "commands/rule-customize"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agents",
+        "groups": [
+          {
+            "group": "Available Agents",
+            "pages": [
+              "agents/overview",
+              "agents/a11y-auditor",
+              "agents/ci-watcher",
+              "agents/dependency-auditor",
+              "agents/docs-writer",
+              "agents/implementer",
+              "agents/lint-fixer",
+              "agents/perf-profiler",
+              "agents/researcher",
+              "agents/reviewer",
+              "agents/security-auditor",
+              "agents/test-writer"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Skills",
+        "groups": [
+          {
+            "group": "Development Skills",
+            "pages": [
+              "skills/overview",
+              "skills/feature",
+              "skills/bug-fix",
+              "skills/refactor",
+              "skills/logical-refactor",
+              "skills/visual-refactor"
+            ]
+          },
+          {
+            "group": "Quality & Testing",
+            "pages": [
+              "skills/a11y-audit",
+              "skills/perf-audit",
+              "skills/qa-validation",
+              "skills/dep-audit"
+            ]
+          },
+          {
+            "group": "Workflow & Process",
+            "pages": [
+              "skills/issue-workflow",
+              "skills/pr-creation",
+              "skills/release",
+              "skills/incident-response",
+              "skills/architecture-review"
+            ]
+          },
+          {
+            "group": "Customization",
+            "pages": [
+              "skills/agent-customize",
+              "skills/command-customize",
+              "skills/skill-customize",
+              "skills/rule-customize",
+              "skills/recipe"
+            ]
+          },
+          {
+            "group": "Monitoring",
+            "pages": [
+              "skills/context-health",
+              "skills/cost-tracking"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Rules",
+        "groups": [
+          {
+            "group": "Code Quality",
+            "pages": [
+              "rules/overview",
+              "rules/code-standards",
+              "rules/error-handling",
+              "rules/testing",
+              "rules/dependency-management"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "rules/api-design",
+              "rules/component-conventions",
+              "rules/agent-orchestration",
+              "rules/migrations"
+            ]
+          },
+          {
+            "group": "Security & Compliance",
+            "pages": [
+              "rules/security-patterns",
+              "rules/observability",
+              "rules/feature-flags"
+            ]
+          },
+          {
+            "group": "User Experience",
+            "pages": [
+              "rules/i18n",
+              "rules/theming",
+              "rules/browser-verification",
+              "rules/performance-budgets"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "rules/git-conventions",
+              "rules/learning-consult",
+              "rules/tooling-hierarchy"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "One-command installation of complete agentic coding setup",
+    "11 specialized agents for code review, testing, security, and implementation",
+    "22 skills for feature development, bug fixing, refactoring, and releases",
+    "18 rules covering code standards, API design, testing, and security",
+    "25 commands for board management, planning, quality audits, and workflows",
+    "Multi-tool support with adapters for Cursor, GitHub Copilot, Claude Code, OpenCode, Windsurf, Amp, Codex, Gemini, and Cline",
+    "Built-in MCP integrations for GitHub, Context7, Filesystem, Playwright, and Brave Search",
+    "Sub-agentic architecture with parallel delegation and dependency-aware orchestration",
+    "GitHub Projects V2 board management with automated issue creation and status tracking",
+    "Spec-driven development with modular documentation structure"
+  ],
+  "publicApiSurface": [
+    "npx hatch3r init",
+    "npx hatch3r sync",
+    "npx hatch3r update",
+    "npx hatch3r validate",
+    "npx hatch3r status",
+    "board-init",
+    "board-fill",
+    "board-pickup",
+    "board-refresh",
+    "project-spec",
+    "codebase-map",
+    "roadmap",
+    "feature-plan",
+    "bug-plan",
+    "refactor-plan",
+    "healthcheck",
+    "security-audit",
+    "dep-audit",
+    "release",
+    "workflow",
+    "hooks",
+    "learn",
+    "context-health",
+    "cost-tracking",
+    "recipe"
+  ]
+}
